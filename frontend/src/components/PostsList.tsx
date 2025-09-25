@@ -10,7 +10,7 @@ interface Post {
   content: string;
 }
 
-export function PostsList() {
+export function TransactionsList() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -49,3 +49,5 @@ export function PostsList() {
     </section>
   );
 }
+
+export { TransactionsList as PostsList } from "./TransactionsList";
