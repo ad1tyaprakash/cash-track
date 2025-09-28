@@ -2,6 +2,7 @@
 from flask import Flask
 from flask_cors import CORS
 
+from routes.dashboard import dashboard_bp
 from routes.posts import posts_bp
 from routes.users import users_bp
 
@@ -11,10 +12,11 @@ def create_app() -> Flask:
     app = Flask(__name__)
     
     # Enable CORS for frontend integration
-    CORS(app, origins=["http://localhost:3000"])
+    CORS(app, origins=["http://localhost:3000", "http://localhost:3001"])
 
     # Blueprint registration keeps the code modular and easier to test.
     app.register_blueprint(posts_bp, url_prefix="/api/posts")
+    app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
     app.register_blueprint(users_bp, url_prefix="/api/users")
 
     @app.get("/health")

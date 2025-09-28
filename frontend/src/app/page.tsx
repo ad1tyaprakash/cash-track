@@ -1,142 +1,48 @@
-import { DashboardCards } from "@/components/DashboardCards"
-import { TransactionForm } from "@/components/TransactionForm"
-import { TransactionsList } from "@/components/TransactionsList"
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarSeparator,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import Link from "next/link"
+
+import { Button } from "@/components/ui/button"
 
 export default function HomePage() {
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen bg-background">
-        <Sidebar>
-          <SidebarHeader className="p-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">Cash Track</h2>
-              <p className="text-sm text-muted-foreground">
-                Stay on top of your cash flow with quick insights.
-              </p>
-            </div>
-          </SidebarHeader>
-          <SidebarSeparator />
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel>Overview</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton isActive>Dashboard</SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton>Analytics</SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton>Budgets</SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-            <SidebarGroup>
-              <SidebarGroupLabel>Accounts</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton>Banking</SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton>Cards</SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton>Savings</SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-          <SidebarFooter className="p-4 text-sm text-muted-foreground">
-            Cash Track © {new Date().getFullYear()}
-          </SidebarFooter>
-        </Sidebar>
-        <SidebarInset>
-          <div className="flex flex-col">
-            <header className="flex items-center gap-3 border-b px-6 py-4">
-              <SidebarTrigger className="md:hidden" />
-              <div className="space-y-1">
-                <p className="text-sm uppercase tracking-wide text-muted-foreground">
-                  Welcome back
-                </p>
-                <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-                  Cash Track Dashboard
-                </h1>
-              </div>
-            </header>
-
-            <div className="space-y-8 px-6 py-6">
-              <p className="text-muted-foreground">
-                Monitor cash flow, review recent transactions, and capture new income or expenses in one place.
-              </p>
-
-              <DashboardCards />
-
-              <Tabs defaultValue="transactions" className="space-y-6">
-                <TabsList className="grid w-full max-w-md grid-cols-2">
-                  <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                  <TabsTrigger value="add">Add Transaction</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="transactions" className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Recent Transactions</CardTitle>
-                      <CardDescription>
-                        Your latest activity across accounts.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <TransactionsList />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="add" className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Add a new transaction</CardTitle>
-                      <CardDescription>
-                        Track incoming cash and expenses in seconds.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <TransactionForm />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </div>
+    <main className="flex min-h-screen flex-col bg-background">
+      <header className="border-b">
+        <div className="container flex items-center justify-between px-4 py-4 lg:px-8">
+          <Link href="/" className="text-lg font-semibold">
+            Cash Track
+          </Link>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" asChild>
+              <Link href="/login">Log in</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/dashboard">Launch dashboard</Link>
+            </Button>
           </div>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+        </div>
+      </header>
+
+      <section className="container flex flex-1 flex-col items-center justify-center gap-8 px-4 py-16 text-center lg:px-8 lg:py-24">
+        <div className="space-y-4">
+          <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+            Cash flow, simplified
+          </span>
+          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+            Track every dollar with a dashboard you&apos;ll love
+          </h1>
+          <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+            Cash Track keeps your income and expenses organized, so you can make smarter decisions faster.
+            Connect accounts, manage budgets, and see trends at a glance.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <Button size="lg" asChild>
+            <Link href="/login">Get started</Link>
+          </Button>
+          <Button size="lg" variant="outline" asChild>
+            <Link href="/dashboard">View dashboard</Link>
+          </Button>
+        </div>
+      </section>
+    </main>
   )
 }
