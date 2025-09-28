@@ -1,10 +1,15 @@
 """Flask application entry point for the backend service."""
+import os
+from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
 
 from routes.dashboard import dashboard_bp
 from routes.posts import posts_bp
 from routes.users import users_bp
+
+# Load environment variables
+load_dotenv()
 
 
 def create_app() -> Flask:

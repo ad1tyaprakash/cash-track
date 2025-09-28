@@ -10,7 +10,10 @@ from services.data_store import (
     add_transaction,
     available_stocks,
     dashboard_overview,
+    delete_stock,
+    delete_transaction,
     enrich_stock,
+    get_transactions,
 )
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -102,3 +105,29 @@ def add_stock_position():
 @dashboard_bp.get("/stocks/options")
 def get_stock_options():
     return jsonify(list(available_stocks()))
+
+
+@dashboard_bp.get("/transactions")
+def get_transactions_endpoint():
+    """Get all transactions."""
+    return jsonify(get_transactions())
+
+
+@dashboard_bp.delete("/transaction/<transaction_id>")
+def delete_transaction_endpoint(transaction_id):
+    """Delete a transaction by ID."""
+    success = delete_transaction(transaction_id)
+    if success:
+        return {"message": "Transaction deleted successfully"}, 200
+    else:
+        return {"error": "Transaction not found"}, 404
+
+
+@dashboard_bp.delete("/stock/<ticker>")
+def delete_stock_endpoint(ticker):
+    """Delete a stock position by ticker."""
+    success = delete_stock(ticker.upper())
+    if success:
+        return {"message": "Stock position deleted successfully"}, 200
+    else:
+        return {"error": "Stock position not found"}, 404

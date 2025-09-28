@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Tuple
+from services.firebase_db import firebase_store
 
 # Seed transaction data used throughout the prototype.
 _TRANSACTIONS: List[Dict[str, Any]] = [
@@ -76,15 +77,14 @@ def get_transactions() -> List[Dict[str, Any]]:
 
 
 def add_transaction(
-    *,
     title: str,
+    content: str,
     amount: float,
     transaction_type: str,
     category: str,
-    content: str = "",
     date: datetime | None = None,
 ) -> Dict[str, Any]:
-    """Persist a new transaction entry."""
+    """Add a transaction to both in-memory store and Firebase."""
     transaction = {
         "id": _next_transaction_id(),
         "title": title,
@@ -94,15 +94,25 @@ def add_transaction(
         "category": category,
         "date": (date or datetime.utcnow()).isoformat() + "Z",
     }
+    
+    # Add to in-memory store
     _TRANSACTIONS.append(transaction)
+    
+    # Save to Firebase
+    firebase_store.save_transaction(transaction)
+    
     return transaction.copy()
 
 
 def delete_transaction(transaction_id: str) -> bool:
-    """Remove a transaction by identifier."""
+    """Remove a transaction from both in-memory store and Firebase."""
     global _TRANSACTIONS
     before = len(_TRANSACTIONS)
     _TRANSACTIONS = [t for t in _TRANSACTIONS if t["id"] != transaction_id]
+    
+    # Delete from Firebase
+    firebase_store.delete_transaction(transaction_id)
+    
     return len(_TRANSACTIONS) < before
 
 
@@ -157,8 +167,26 @@ def add_stock(
         "purchase_price": float(purchase_price),
         "current_price": resolved_current_price,
     }
+    
+    # Add to in-memory store
     _STOCKS.append(stock)
+    
+    # Save to Firebase
+    firebase_store.save_stock(stock)
+    
     return stock.copy()
+
+
+def delete_stock(ticker: str) -> bool:
+    """Remove a stock position from both in-memory store and Firebase."""
+    global _STOCKS
+    original_length = len(_STOCKS)
+    _STOCKS = [s for s in _STOCKS if s["ticker"] != ticker]
+    
+    # Delete from Firebase
+    firebase_store.delete_stock(ticker)
+    
+    return len(_STOCKS) < original_length
 
 
 def available_stocks() -> Tuple[Dict[str, Any], ...]:
@@ -238,3 +266,36 @@ def dashboard_overview() -> Dict[str, Any]:
             for item in _AVAILABLE_STOCKS
         ],
     }
+
+
+def load_data_from_firebase():
+    """Load data from Firebase on startup, merge with in-memory data."""
+    global _TRANSACTIONS, _STOCKS
+    
+    try:
+        # Load transactions from Firebase
+        firebase_transactions = firebase_store.get_transactions()
+        if firebase_transactions:
+            # Merge Firebase transactions with in-memory ones, avoiding duplicates
+            existing_ids = {t["id"] for t in _TRANSACTIONS}
+            for transaction in firebase_transactions:
+                if transaction["id"] not in existing_ids:
+                    _TRANSACTIONS.append(transaction)
+            print(f"Loaded {len(firebase_transactions)} transactions from Firebase")
+        
+        # Load stocks from Firebase
+        firebase_stocks = firebase_store.get_stocks()
+        if firebase_stocks:
+            # Merge Firebase stocks with in-memory ones, avoiding duplicates
+            existing_tickers = {s["ticker"] for s in _STOCKS}
+            for stock in firebase_stocks:
+                if stock["ticker"] not in existing_tickers:
+                    _STOCKS.append(stock)
+            print(f"Loaded {len(firebase_stocks)} stocks from Firebase")
+                    
+    except Exception as e:
+        print(f"Failed to load data from Firebase: {e}")
+
+
+# Load Firebase data on module import
+load_data_from_firebase()

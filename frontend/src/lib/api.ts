@@ -165,3 +165,25 @@ export async function getSummary(): Promise<Summary> {
 
   return response.json();
 }
+
+export async function getTransactions(): Promise<Transaction[]> {
+  const response = await fetch(`${BASE_URL}/api/dashboard/transactions`, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  return handleResponse<Transaction[]>(response);
+}
+
+export async function deleteTransaction(transactionId: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/api/dashboard/transaction/${transactionId}`, {
+    method: "DELETE",
+  });
+  await handleResponse<{ message: string }>(response);
+}
+
+export async function deleteStock(ticker: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/api/dashboard/stock/${ticker}`, {
+    method: "DELETE",
+  });
+  await handleResponse<{ message: string }>(response);
+}

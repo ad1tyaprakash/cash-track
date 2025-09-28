@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import "@/styles/globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/components/auth-provider";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Cash Track | Dashboard",
@@ -20,6 +21,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background font-sans antialiased">
         <ThemeProvider>
           <AuthProvider>{children}</AuthProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

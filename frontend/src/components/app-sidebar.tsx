@@ -39,7 +39,7 @@ const data = {
     },
     {
       title: "Investments",
-      url: "#", 
+      url: "/investments", 
       icon: TrendingUpIcon,
     },
     {
