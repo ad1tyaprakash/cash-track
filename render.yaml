@@ -1,0 +1,45 @@
+services:
+  # Backend API Service
+  - type: web
+    name: cash-track-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn --config gunicorn.conf.py app:create_app()"
+    healthCheckPath: /health
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FIREBASE_DATABASE_URL
+        sync: false  # Set this in Render dashboard
+      - key: ALLOWED_ORIGINS
+        sync: false  # Set this to your frontend URL
+
+  # Frontend Service
+  - type: web
+    name: cash-track-frontend
+    runtime: node
+    plan: free
+    rootDir: frontend
+    buildCommand: "npm ci && npm run build"
+    startCommand: "npm start"
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        sync: false  # Set this to your backend URL
+      - key: NEXT_PUBLIC_FIREBASE_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_DATABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_APP_ID
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+        sync: false

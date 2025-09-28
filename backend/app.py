@@ -16,8 +16,19 @@ def create_app() -> Flask:
     """Create and configure the Flask application."""
     app = Flask(__name__)
     
-    # Enable CORS for frontend integration
-    CORS(app, origins=["http://localhost:3000", "http://localhost:3001"])
+    # Enable CORS for frontend integration - allow production domains
+    cors_origins = [
+        "http://localhost:3000", 
+        "http://localhost:3001",
+        "https://*.onrender.com",  # Allow Render frontend
+    ]
+    
+    # Get allowed origins from environment for production
+    allowed_origins = os.getenv('ALLOWED_ORIGINS', '').split(',')
+    if allowed_origins and allowed_origins[0]:
+        cors_origins.extend(allowed_origins)
+    
+    CORS(app, origins=cors_origins)
 
     # Blueprint registration keeps the code modular and easier to test.
     app.register_blueprint(posts_bp, url_prefix="/api/posts")
@@ -31,13 +42,13 @@ def create_app() -> Flask:
 
     return app
 
-    return app
-
 
 def run() -> None:
-    """Run the development server."""
+    """Run the server."""
     app = create_app()
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    port = int(os.getenv('PORT', 5001))
+    debug = os.getenv('FLASK_ENV') == 'development'
+    app.run(host="0.0.0.0", port=port, debug=debug)
 
 
 if __name__ == "__main__":
