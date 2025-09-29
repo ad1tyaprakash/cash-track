@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useState, FormEvent } from "react"
+import { useCallback, useMemo, useState, FormEvent, useEffect } from "react"
 import {
   createExpense,
   createIncome,
@@ -65,12 +65,30 @@ function formatCurrency(amount: number): string {
 }
 
 interface FinancialDashboardProps {
-  initialData: DashboardOverview
+  initialData?: DashboardOverview
 }
 
 export function FinancialDashboard({ initialData }: FinancialDashboardProps) {
-  const [overview, setOverview] = useState(initialData)
+  const [overview, setOverview] = useState(initialData || null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isLoading, setIsLoading] = useState(!initialData)
+  
+  useEffect(() => {
+    if (!initialData) {
+      const fetchData = async () => {
+        try {
+          setIsLoading(true)
+          const data = await getDashboardOverview()
+          setOverview(data)
+        } catch (error) {
+          console.error("Failed to load dashboard overview", error)
+        } finally {
+          setIsLoading(false)
+        }
+      }
+      fetchData()
+    }
+  }, [initialData])
   const [incomeMessage, setIncomeMessage] = useState<string | null>(null)
   const [expenseMessage, setExpenseMessage] = useState<string | null>(null)
   const [stockMessage, setStockMessage] = useState<string | null>(null)
@@ -267,6 +285,26 @@ export function FinancialDashboard({ initialData }: FinancialDashboardProps) {
 
   const hasExpenseData = expenseChartData.some((item) => item.value > 0)
   const hasNetWorthData = netWorthChartData.some((item) => item.value > 0)
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center px-4 pb-10">
+        <div className="w-full max-w-md rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+          Loading dashboard data...
+        </div>
+      </div>
+    )
+  }
+
+  if (!overview) {
+    return (
+      <div className="flex flex-1 items-center justify-center px-4 pb-10">
+        <div className="w-full max-w-md rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+          We couldn&apos;t load your dashboard data right now. Please try refreshing the page.
+        </div>
+      </div>
+    )
+  }
 
   const deficitIsPositive = overview.deficit >= 0
 

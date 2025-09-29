@@ -1,3 +1,6 @@
+'use client'
+
+import { useEffect, useState } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -5,15 +8,6 @@ import { getDashboardOverview, type DashboardOverview } from "@/lib/api"
 import { StockManager } from "@/components/StockManager"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, DollarSign, Target, BarChart3 } from "lucide-react"
-
-async function fetchOverview(): Promise<DashboardOverview | null> {
-  try {
-    return await getDashboardOverview()
-  } catch (error) {
-    console.error("Failed to load dashboard overview", error)
-    return null
-  }
-}
 
 function InvestmentsContent({ overview }: { overview: DashboardOverview }) {
   // Calculate investment metrics
@@ -105,8 +99,24 @@ function InvestmentsContent({ overview }: { overview: DashboardOverview }) {
   )
 }
 
-export default async function InvestmentsPage() {
-  const overview = await fetchOverview()
+export default function InvestmentsPage() {
+  const [overview, setOverview] = useState<DashboardOverview | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true)
+        const data = await getDashboardOverview()
+        setOverview(data)
+      } catch (error) {
+        console.error("Failed to load dashboard overview", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
 
   return (
     <SidebarProvider>
@@ -114,7 +124,13 @@ export default async function InvestmentsPage() {
         <AppSidebar />
         <SidebarInset>
           <SiteHeader />
-          {overview ? (
+          {isLoading ? (
+            <div className="flex flex-1 items-center justify-center px-4 pb-10">
+              <div className="w-full max-w-md rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                Loading investment data...
+              </div>
+            </div>
+          ) : overview ? (
             <InvestmentsContent overview={overview} />
           ) : (
             <div className="flex flex-1 items-center justify-center px-4 pb-10">
