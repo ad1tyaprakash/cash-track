@@ -6,7 +6,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: "./build.sh"
-    startCommand: "gunicorn --config gunicorn.conf.py app:create_app()"
+    startCommand: "gunicorn --config gunicorn.conf.py app:create_app"
     healthCheckPath: /health
     envVars:
       - key: FLASK_ENV

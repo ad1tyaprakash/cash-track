@@ -23,12 +23,12 @@ git push origin main
    - **Root Directory**: `backend`
    - **Runtime**: `Python`
    - **Build Command**: `./build.sh`
-   - **Start Command**: `gunicorn --config gunicorn.conf.py app:create_app()`
+   - **Start Command**: `gunicorn --config gunicorn.conf.py app:create_app`
 
 4. **Set Environment Variables:**
    ```
    FLASK_ENV=production
-   FIREBASE_DATABASE_URL=https://your-project-id-default-rtdb.region.firebasedatabase.app
+   FIREBASE_DATABASE_URL=https://cashtrack-182df-default-rtdb.asia-southeast1.firebasedatabase.app
    ALLOWED_ORIGINS=https://your-frontend-name.onrender.com
    ```
 
