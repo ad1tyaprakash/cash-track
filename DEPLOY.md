@@ -21,7 +21,7 @@ git push origin main
 3. **Configure the service:**
    - **Name**: `cash-track-backend`
    - **Root Directory**: `backend`
-   - **Runtime**: `Python`
+   - **Runtime**: `Python` (select from dropdown)
    - **Build Command**: `./build.sh`
    - **Start Command**: `gunicorn --config gunicorn.conf.py app:app`
 
@@ -41,7 +41,7 @@ git push origin main
 3. **Configure the service:**
    - **Name**: `cash-track-frontend`
    - **Root Directory**: `frontend`
-   - **Runtime**: `Node`
+   - **Runtime**: `Node` (select from dropdown)
    - **Build Command**: `npm install && npm run build`
    - **Start Command**: `npm start`
 
