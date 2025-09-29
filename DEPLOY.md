@@ -42,7 +42,7 @@ git push origin main
    - **Name**: `cash-track-frontend`
    - **Root Directory**: `frontend`
    - **Runtime**: `Node`
-   - **Build Command**: `npm ci && npm run build`
+   - **Build Command**: `npm install && npm run build`
    - **Start Command**: `npm start`
 
 4. **Set Environment Variables:**
