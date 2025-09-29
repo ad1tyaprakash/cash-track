@@ -20,7 +20,8 @@ def create_app() -> Flask:
     cors_origins = [
         "http://localhost:3000", 
         "http://localhost:3001",
-        "https://*.onrender.com",  # Allow Render frontend
+        "https://cash-track-frontend.onrender.com",  # Production frontend
+        "https://*.onrender.com",  # Allow any Render subdomain
     ]
     
     # Get allowed origins from environment for production
