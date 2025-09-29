@@ -1,20 +1,41 @@
 # Deploy Cash Track to Render
 
+## Architecture Overview
+- **Frontend**: Next.js app with shadcn/ui components
+- **Backend**: Flask API with gunicorn
+- **Database**: Firebase Realtime Database (fully replaces in-memory storage)
+- **Authentication**: Firebase Auth
+
 ## Prerequisites
 1. Push your code to GitHub
-2. Have a Render account (free at render.com)
-3. Your Firebase project configured
+2. Have a Render account (free at render.com)  
+3. Firebase project with Realtime Database enabled
+4. Firebase service account JSON key
 
 ## Deployment Steps
 
-### 1. Push to GitHub
+### 1. Firebase Setup
+1. **Enable Realtime Database** in your Firebase project
+2. **Set database rules** (for development, you can use test rules):
+   ```json
+   {
+     "rules": {
+       ".read": true,
+       ".write": true
+     }
+   }
+   ```
+3. **Get your database URL** from Firebase Console → Realtime Database
+   - Format: `https://cashtrack-182df-default-rtdb.asia-southeast1.firebasedatabase.app`
+
+### 2. Push to GitHub
 ```bash
 git add .
-git commit -m "Prepare for Render deployment"
+git commit -m "Switch to Firebase Realtime Database"
 git push origin main
 ```
 
-### 2. Deploy Backend (API)
+### 3. Deploy Backend (API)
 
 1. **Go to Render Dashboard** → **New** → **Web Service**
 2. **Connect your GitHub repo**
@@ -29,12 +50,15 @@ git push origin main
    ```
    FLASK_ENV=production
    FIREBASE_DATABASE_URL=https://cashtrack-182df-default-rtdb.asia-southeast1.firebasedatabase.app
+   FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
    ALLOWED_ORIGINS=https://cash-track-frontend.onrender.com
    ```
+   
+   ⚠️ **Important**: Use your actual Firebase service account JSON for FIREBASE_SERVICE_ACCOUNT_JSON
 
 5. **Deploy** and copy the backend URL (e.g., `https://cash-track-backend.onrender.com`)
 
-### 3. Deploy Frontend
+### 4. Deploy Frontend
 
 1. **Go to Render Dashboard** → **New** → **Web Service**
 2. **Connect the same GitHub repo**
@@ -58,7 +82,7 @@ git push origin main
    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-P5DCF2QQ8D
    ```
 
-### 4. Update Backend CORS
+### 5. Update Backend CORS
 
 1. **Go back to your backend service**
 2. **Update environment variable:**
@@ -67,13 +91,35 @@ git push origin main
    ```
 3. **Redeploy the backend**
 
-### 5. Upload Firebase Service Account
+### 6. Upload Firebase Service Account
 
 **Important:** You need to download your actual Firebase service account from the Firebase Console before proceeding.
 
 **Option A: Environment Variable (Recommended for Free Tier)**
 1. **Go to Firebase Console** → **Project Settings** → **Service accounts**
 2. **Click "Generate new private key"** → **Download the JSON file**
+3. **Copy the entire JSON content** and paste it as the `FIREBASE_SERVICE_ACCOUNT_JSON` environment variable in your backend service
+4. **Format as single line** (remove all line breaks)
+
+**Option B: File Upload (If Available)**
+1. **In your backend service** → **Settings** → **Files** (may not be available on free tier)
+2. **Add a new file**: `firebase-service-account.json`
+3. **Paste your actual Firebase service account JSON content**
+
+## Database Migration Complete ✅
+
+Your Cash Track app now uses **Firebase Realtime Database** exclusively:
+
+- ✅ **No more in-memory storage** - all data persists in Firebase
+- ✅ **Data seeding** - New Firebase databases get automatically seeded with sample data
+- ✅ **Real-time sync** - Changes are immediately saved to the cloud
+- ✅ **Cross-device access** - Your data syncs across all devices
+- ✅ **Backup included** - Firebase provides automatic backups
+
+The app will automatically:
+1. **Check Firebase availability** on startup
+2. **Seed with sample data** if database is empty
+3. **Fall back gracefully** to local data if Firebase is unavailable (development only)
 3. **Convert the JSON to a single line** (remove all newlines and spaces between elements)
 4. **In your backend service** → **Environment**
 5. **Add environment variable:**
@@ -99,15 +145,22 @@ Use the render.yaml file:
 
 ## Environment Variables Summary
 
-### Backend:
+### Backend (Required):
 - `FLASK_ENV=production`
 - `FIREBASE_DATABASE_URL=https://cashtrack-182df-default-rtdb.asia-southeast1.firebasedatabase.app`
+- `FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}` (complete JSON as single line)
 - `ALLOWED_ORIGINS=https://cash-track-frontend.onrender.com`
-- `FIREBASE_SERVICE_ACCOUNT_JSON=your-service-account-json` (single line)
 
-### Frontend:
+### Frontend (Required):
 - `NEXT_PUBLIC_API_URL=https://cash-track-backend.onrender.com`
-- All Firebase config variables (copy from your .env.local)
+- `NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyAZbOv2vN_gz5uop7XxN7AaG3MJv91LRKg`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=cashtrack-182df.firebaseapp.com`
+- `NEXT_PUBLIC_FIREBASE_DATABASE_URL=https://cashtrack-182df-default-rtdb.asia-southeast1.firebasedatabase.app`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID=cashtrack-182df`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=cashtrack-182df.firebasestorage.app`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=789777829329`
+- `NEXT_PUBLIC_FIREBASE_APP_ID=1:789777829329:web:b1003bc3fe328f8909e4f0`
+- `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-P5DCF2QQ8D`
 
 ## Troubleshooting
 

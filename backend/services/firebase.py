@@ -1,4 +1,4 @@
-"""Firebase Admin SDK setup."""
+"""Firebase Admin SDK setup with Realtime Database support."""
 from __future__ import annotations
 
 import json
@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import firebase_admin
-from firebase_admin import auth, credentials
+from firebase_admin import auth, credentials, db
 
 SERVICE_ACCOUNT_PATH = Path(__file__).resolve().parent.parent / "firebase-service-account.json"
 
@@ -25,16 +25,23 @@ class MockAuth:
 
 @lru_cache
 def initialize_app() -> firebase_admin.App | None:
-    """Initialise and cache the Firebase app instance."""
+    """Initialise and cache the Firebase app instance with Realtime Database support."""
     
     # Try environment variable first (for Render deployment)
     service_account_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON')
     if service_account_json:
         try:
             service_account_dict = json.loads(service_account_json)
+            
+            # Get database URL from environment or construct from project ID
+            project_id = service_account_dict.get('project_id')
+            database_url = os.getenv('FIREBASE_DATABASE_URL', f'https://{project_id}-default-rtdb.firebaseio.com/')
+            
             cred = credentials.Certificate(service_account_dict)
-            app = firebase_admin.initialize_app(cred)
-            print("Firebase initialized from environment variable")
+            app = firebase_admin.initialize_app(cred, {
+                'databaseURL': database_url
+            })
+            print(f"Firebase initialized from environment variable with database: {database_url}")
             return app
         except (json.JSONDecodeError, Exception) as e:
             print(f"Error parsing Firebase service account from environment: {e}")
@@ -42,9 +49,21 @@ def initialize_app() -> firebase_admin.App | None:
     # Fallback to file-based approach
     if SERVICE_ACCOUNT_PATH.exists():
         try:
+            with open(SERVICE_ACCOUNT_PATH, 'r') as f:
+                config = json.load(f)
+                if config.get('project_id', '').startswith('TODO_'):
+                    print("Firebase service account not configured (contains TODO placeholders)")
+                    return None
+            
+            # Get database URL from environment or construct from project ID
+            project_id = config.get('project_id')
+            database_url = os.getenv('FIREBASE_DATABASE_URL', f'https://{project_id}-default-rtdb.firebaseio.com/')
+            
             cred = credentials.Certificate(str(SERVICE_ACCOUNT_PATH))
-            app = firebase_admin.initialize_app(cred)
-            print("Firebase initialized from service account file")
+            app = firebase_admin.initialize_app(cred, {
+                'databaseURL': database_url
+            })
+            print(f"Firebase initialized from service account file with database: {database_url}")
             return app
         except Exception as e:
             print(f"Error initializing Firebase from file: {e}")
@@ -52,9 +71,6 @@ def initialize_app() -> firebase_admin.App | None:
     # For development, we'll use a mock instead of raising an error
     print("Warning: Firebase service account not found. Using mock for development.")
     return None
-
-    cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
-    return firebase_admin.initialize_app(cred)
 
 
 @lru_cache
@@ -65,4 +81,11 @@ def get_firebase_auth() -> Any:
         # Return mock auth for development
         return MockAuth()
     return auth
-    return auth
+
+
+def get_firebase_db():
+    """Return the Firebase Realtime Database module, ensuring the app is initialised."""
+    app = initialize_app()
+    if app is None:
+        return None
+    return db

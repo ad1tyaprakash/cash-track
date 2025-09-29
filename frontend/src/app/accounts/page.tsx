@@ -251,6 +251,7 @@ function AccountsContent({ overview }: { overview: DashboardOverview }) {
               <Label htmlFor="account-type">Account Type</Label>
               <select
                 id="account-type"
+                title="Account Type"
                 className="w-full p-2 border rounded-md"
                 value={newAccount.type}
                 onChange={(e) => setNewAccount({ ...newAccount, type: e.target.value })}

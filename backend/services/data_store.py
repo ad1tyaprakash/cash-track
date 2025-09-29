@@ -1,4 +1,4 @@
-"""In-memory data store and helpers for the cash-track prototype backend."""
+"""Firebase Realtime Database data store for the cash-track backend."""
 from __future__ import annotations
 
 from collections import Counter
@@ -6,8 +6,8 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List, Tuple
 from services.firebase_db import firebase_store
 
-# Seed transaction data used throughout the prototype.
-_TRANSACTIONS: List[Dict[str, Any]] = [
+# Seed transaction data - only used if Firebase is not available
+_SEED_TRANSACTIONS: List[Dict[str, Any]] = [
     {
         "id": "1",
         "title": "Grocery Shopping",
@@ -45,7 +45,7 @@ _AVAILABLE_STOCKS: Tuple[Dict[str, Any], ...] = (
     {"symbol": "TSLA", "name": "Tesla, Inc.", "price": 245.93},
 )
 
-_STOCKS: List[Dict[str, Any]] = [
+_SEED_STOCKS: List[Dict[str, Any]] = [
     {
         "ticker": "AAPL",
         "quantity": 12,
@@ -68,12 +68,33 @@ _STOCKS: List[Dict[str, Any]] = [
 
 
 def _next_transaction_id() -> str:
-    return str(len(_TRANSACTIONS) + 1)
+    """Generate the next transaction ID based on Firebase data."""
+    if firebase_store.firebase_available:
+        transactions = firebase_store.get_transactions()
+        if transactions:
+            # Get the highest ID and increment
+            max_id = max(int(t.get("id", "0")) for t in transactions if t.get("id", "0").isdigit())
+            return str(max_id + 1)
+        return "1"
+    else:
+        # Fallback for development
+        return str(len(_SEED_TRANSACTIONS) + 1)
 
 
 def get_transactions() -> List[Dict[str, Any]]:
-    """Return a shallow copy of stored transactions."""
-    return [transaction.copy() for transaction in _TRANSACTIONS]
+    """Return transactions from Firebase or seed data if Firebase unavailable."""
+    if firebase_store.firebase_available:
+        transactions = firebase_store.get_transactions()
+        if transactions:
+            return transactions
+        else:
+            # If Firebase is available but empty, seed with initial data
+            for transaction in _SEED_TRANSACTIONS:
+                firebase_store.save_transaction(transaction)
+            return _SEED_TRANSACTIONS.copy()
+    else:
+        # Fallback to seed data for development
+        return [transaction.copy() for transaction in _SEED_TRANSACTIONS]
 
 
 def add_transaction(
@@ -84,7 +105,7 @@ def add_transaction(
     category: str,
     date: datetime | None = None,
 ) -> Dict[str, Any]:
-    """Add a transaction to both in-memory store and Firebase."""
+    """Add a transaction to Firebase."""
     transaction = {
         "id": _next_transaction_id(),
         "title": title,
@@ -95,44 +116,48 @@ def add_transaction(
         "date": (date or datetime.utcnow()).isoformat() + "Z",
     }
     
-    # Add to in-memory store
-    _TRANSACTIONS.append(transaction)
-    
-    # Save to Firebase
-    firebase_store.save_transaction(transaction)
+    # Save to Firebase (or add to seed data if Firebase unavailable)
+    if firebase_store.firebase_available:
+        firebase_store.save_transaction(transaction)
+    else:
+        # For development without Firebase, add to seed data
+        _SEED_TRANSACTIONS.append(transaction)
     
     return transaction.copy()
 
 
 def delete_transaction(transaction_id: str) -> bool:
-    """Remove a transaction from both in-memory store and Firebase."""
-    global _TRANSACTIONS
-    before = len(_TRANSACTIONS)
-    _TRANSACTIONS = [t for t in _TRANSACTIONS if t["id"] != transaction_id]
-    
-    # Delete from Firebase
-    firebase_store.delete_transaction(transaction_id)
-    
-    return len(_TRANSACTIONS) < before
+    """Remove a transaction from Firebase."""
+    if firebase_store.firebase_available:
+        # Delete from Firebase
+        return firebase_store.delete_transaction(transaction_id)
+    else:
+        # For development without Firebase, remove from seed data
+        global _SEED_TRANSACTIONS
+        before = len(_SEED_TRANSACTIONS)
+        _SEED_TRANSACTIONS = [t for t in _SEED_TRANSACTIONS if t["id"] != transaction_id]
+        return len(_SEED_TRANSACTIONS) < before
 
 
 def transaction_summary() -> Dict[str, Any]:
-    """Compute totals for income, expenses, and balance."""
-    income = sum(t["amount"] for t in _TRANSACTIONS if t["type"] == "income")
-    expenses = sum(abs(t["amount"]) for t in _TRANSACTIONS if t["type"] == "expense")
+    """Compute totals for income, expenses, and balance from Firebase data."""
+    transactions = get_transactions()
+    income = sum(t["amount"] for t in transactions if t["type"] == "income")
+    expenses = sum(abs(t["amount"]) for t in transactions if t["type"] == "expense")
     balance = income - expenses
     return {
         "income": income,
         "expenses": expenses,
         "balance": balance,
-        "transaction_count": len(_TRANSACTIONS),
+        "transaction_count": len(transactions),
     }
 
 
 def expense_breakdown() -> Dict[str, float]:
-    """Return a category => total spent mapping for expenses."""
+    """Return a category => total spent mapping for expenses from Firebase data."""
+    transactions = get_transactions()
     counter: Counter[str] = Counter()
-    for transaction in _TRANSACTIONS:
+    for transaction in transactions:
         if transaction["type"] == "expense":
             counter[transaction["category"]] += abs(transaction["amount"])
     # Preserve insertion order for deterministic output.
@@ -140,8 +165,19 @@ def expense_breakdown() -> Dict[str, float]:
 
 
 def get_stocks() -> List[Dict[str, Any]]:
-    """Return a shallow copy of stored stocks."""
-    return [stock.copy() for stock in _STOCKS]
+    """Return stocks from Firebase or seed data if Firebase unavailable."""
+    if firebase_store.firebase_available:
+        stocks = firebase_store.get_stocks()
+        if stocks:
+            return stocks
+        else:
+            # If Firebase is available but empty, seed with initial data
+            for stock in _SEED_STOCKS:
+                firebase_store.save_stock(stock)
+            return _SEED_STOCKS.copy()
+    else:
+        # Fallback to seed data for development
+        return [stock.copy() for stock in _SEED_STOCKS]
 
 
 def add_stock(
@@ -151,7 +187,7 @@ def add_stock(
     purchase_price: float,
     current_price: float | None = None,
 ) -> Dict[str, Any]:
-    """Persist a stock position. Default to reference price when current price is missing."""
+    """Persist a stock position to Firebase. Default to reference price when current price is missing."""
     reference = next(
         (item for item in _AVAILABLE_STOCKS if item["symbol"] == ticker),
         None,
@@ -168,25 +204,27 @@ def add_stock(
         "current_price": resolved_current_price,
     }
     
-    # Add to in-memory store
-    _STOCKS.append(stock)
-    
-    # Save to Firebase
-    firebase_store.save_stock(stock)
+    # Save to Firebase (or add to seed data if Firebase unavailable)
+    if firebase_store.firebase_available:
+        firebase_store.save_stock(stock)
+    else:
+        # For development without Firebase, add to seed data
+        _SEED_STOCKS.append(stock)
     
     return stock.copy()
 
 
 def delete_stock(ticker: str) -> bool:
-    """Remove a stock position from both in-memory store and Firebase."""
-    global _STOCKS
-    original_length = len(_STOCKS)
-    _STOCKS = [s for s in _STOCKS if s["ticker"] != ticker]
-    
-    # Delete from Firebase
-    firebase_store.delete_stock(ticker)
-    
-    return len(_STOCKS) < original_length
+    """Remove a stock position from Firebase."""
+    if firebase_store.firebase_available:
+        # Delete from Firebase
+        return firebase_store.delete_stock(ticker)
+    else:
+        # For development without Firebase, remove from seed data
+        global _SEED_STOCKS
+        original_length = len(_SEED_STOCKS)
+        _SEED_STOCKS = [s for s in _SEED_STOCKS if s["ticker"] != ticker]
+        return len(_SEED_STOCKS) < original_length
 
 
 def available_stocks() -> Tuple[Dict[str, Any], ...]:
@@ -268,34 +306,31 @@ def dashboard_overview() -> Dict[str, Any]:
     }
 
 
-def load_data_from_firebase():
-    """Load data from Firebase on startup, merge with in-memory data."""
-    global _TRANSACTIONS, _STOCKS
+def initialize_firebase_data():
+    """Initialize Firebase with seed data if it's empty."""
+    if not firebase_store.firebase_available:
+        print("Firebase not available, using seed data for development")
+        return
     
     try:
-        # Load transactions from Firebase
-        firebase_transactions = firebase_store.get_transactions()
-        if firebase_transactions:
-            # Merge Firebase transactions with in-memory ones, avoiding duplicates
-            existing_ids = {t["id"] for t in _TRANSACTIONS}
-            for transaction in firebase_transactions:
-                if transaction["id"] not in existing_ids:
-                    _TRANSACTIONS.append(transaction)
-            print(f"Loaded {len(firebase_transactions)} transactions from Firebase")
+        # Check if Firebase has any data
+        transactions = firebase_store.get_transactions()
+        stocks = firebase_store.get_stocks()
         
-        # Load stocks from Firebase
-        firebase_stocks = firebase_store.get_stocks()
-        if firebase_stocks:
-            # Merge Firebase stocks with in-memory ones, avoiding duplicates
-            existing_tickers = {s["ticker"] for s in _STOCKS}
-            for stock in firebase_stocks:
-                if stock["ticker"] not in existing_tickers:
-                    _STOCKS.append(stock)
-            print(f"Loaded {len(firebase_stocks)} stocks from Firebase")
-                    
+        # If no data exists, seed with initial data
+        if not transactions:
+            print("Seeding Firebase with initial transaction data")
+            for transaction in _SEED_TRANSACTIONS:
+                firebase_store.save_transaction(transaction)
+        
+        if not stocks:
+            print("Seeding Firebase with initial stock data")
+            for stock in _SEED_STOCKS:
+                firebase_store.save_stock(stock)
+                
     except Exception as e:
-        print(f"Failed to load data from Firebase: {e}")
+        print(f"Failed to initialize Firebase data: {e}")
 
 
-# Load Firebase data on module import
-load_data_from_firebase()
+# Initialize Firebase data on module import
+initialize_firebase_data()

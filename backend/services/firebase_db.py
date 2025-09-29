@@ -5,48 +5,22 @@ import json
 import os
 from typing import Dict, List, Any, Optional
 from datetime import datetime
-
-# Initialize Firebase Admin SDK
-def initialize_firebase():
-    """Initialize Firebase Admin SDK if not already initialized."""
-    if not firebase_admin._apps:
-        try:
-            # Load service account key
-            service_account_path = os.path.join(os.path.dirname(__file__), '..', 'firebase-service-account.json')
-            
-            # Check if service account file exists and is properly configured
-            if not os.path.exists(service_account_path):
-                print("Firebase service account file not found")
-                return False
-                
-            with open(service_account_path, 'r') as f:
-                config = json.load(f)
-                if config.get('project_id', '').startswith('TODO_'):
-                    print("Firebase service account not configured (contains TODO placeholders)")
-                    return False
-            
-            cred = credentials.Certificate(service_account_path)
-            
-            # Try to get database URL from environment or construct from project ID
-            project_id = config.get('project_id')
-            database_url = os.getenv('FIREBASE_DATABASE_URL', f'https://{project_id}-default-rtdb.firebaseio.com/')
-            
-            # Initialize the app with the service account key and database URL
-            firebase_admin.initialize_app(cred, {
-                'databaseURL': database_url
-            })
-            print(f"Firebase initialized successfully with database: {database_url}")
-            return True
-        except Exception as e:
-            print(f"Failed to initialize Firebase: {e}")
-            return False
-    return True
+from services.firebase import initialize_app
 
 class FirebaseDataStore:
     """Firebase Realtime Database data store for transactions and stocks."""
     
     def __init__(self):
-        self.firebase_available = initialize_firebase()
+        self.firebase_available = self._check_firebase_availability()
+        
+    def _check_firebase_availability(self) -> bool:
+        """Check if Firebase is properly initialized."""
+        try:
+            app = initialize_app()
+            return app is not None
+        except Exception as e:
+            print(f"Firebase not available: {e}")
+            return False
         
     def _get_ref(self, path: str):
         """Get Firebase database reference."""
