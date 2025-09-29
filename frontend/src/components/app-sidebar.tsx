@@ -34,7 +34,7 @@ const data = {
     },
     {
       title: "Analytics", 
-      url: "#",
+      url: "/analytics",
       icon: BarChartIcon,
     },
     {
@@ -44,17 +44,17 @@ const data = {
     },
     {
       title: "Budget",
-      url: "#",
+      url: "/budget",
       icon: PieChartIcon,
     },
     {
       title: "Accounts",
-      url: "#",
+      url: "/accounts",
       icon: CreditCardIcon,
     },
     {
       title: "Savings",
-      url: "#",
+      url: "/savings",
       icon: WalletIcon,
     },
   ],
