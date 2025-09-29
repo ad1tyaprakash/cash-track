@@ -29,10 +29,10 @@ git push origin main
    ```
    FLASK_ENV=production
    FIREBASE_DATABASE_URL=https://cashtrack-182df-default-rtdb.asia-southeast1.firebasedatabase.app
-   ALLOWED_ORIGINS=https://your-frontend-name.onrender.com
+   ALLOWED_ORIGINS=https://cash-track-frontend.onrender.com
    ```
 
-5. **Deploy** and copy the backend URL (e.g., `https://cash-track-backend-xxx.onrender.com`)
+5. **Deploy** and copy the backend URL (e.g., `https://cash-track-backend.onrender.com`)
 
 ### 3. Deploy Frontend
 
@@ -47,15 +47,15 @@ git push origin main
 
 4. **Set Environment Variables:**
    ```
-   NEXT_PUBLIC_API_URL=https://your-backend-name.onrender.com
-   NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-api-key
-   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-   NEXT_PUBLIC_FIREBASE_DATABASE_URL=https://your-project-default-rtdb.region.firebasedatabase.app
-   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-   NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
-   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your-measurement-id
+   NEXT_PUBLIC_API_URL=https://cash-track-backend.onrender.com
+   NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyAZbOv2vN_gz5uop7XxN7AaG3MJv91LRKg
+   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=cashtrack-182df.firebaseapp.com
+   NEXT_PUBLIC_FIREBASE_DATABASE_URL=https://cashtrack-182df-default-rtdb.asia-southeast1.firebasedatabase.app
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID=cashtrack-182df
+   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=cashtrack-182df.firebasestorage.app
+   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=789777829329
+   NEXT_PUBLIC_FIREBASE_APP_ID=1:789777829329:web:b1003bc3fe328f8909e4f0
+   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-P5DCF2QQ8D
    ```
 
 ### 4. Update Backend CORS
@@ -63,13 +63,27 @@ git push origin main
 1. **Go back to your backend service**
 2. **Update environment variable:**
    ```
-   ALLOWED_ORIGINS=https://your-actual-frontend-url.onrender.com
+   ALLOWED_ORIGINS=https://cash-track-frontend.onrender.com
    ```
 3. **Redeploy the backend**
 
 ### 5. Upload Firebase Service Account
 
-1. **In your backend service** → **Settings** → **Files**
+**Important:** You need to download your actual Firebase service account from the Firebase Console before proceeding.
+
+**Option A: Environment Variable (Recommended for Free Tier)**
+1. **Go to Firebase Console** → **Project Settings** → **Service accounts**
+2. **Click "Generate new private key"** → **Download the JSON file**
+3. **Convert the JSON to a single line** (remove all newlines and spaces between elements)
+4. **In your backend service** → **Environment**
+5. **Add environment variable:**
+   ```
+   FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"cashtrack-182df","private_key_id":"your-key-id","private_key":"-----BEGIN PRIVATE KEY-----\nyour-private-key\n-----END PRIVATE KEY-----\n","client_email":"firebase-adminsdk-xxxxx@cashtrack-182df.iam.gserviceaccount.com","client_id":"your-client-id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-xxxxx%40cashtrack-182df.iam.gserviceaccount.com"}
+   ```
+   **Note:** Replace the placeholder values with your actual Firebase service account data.
+
+**Option B: File Upload (If Available)**
+1. **In your backend service** → **Settings** → **Files** (may not be available on free tier)
 2. **Add a new file**: `firebase-service-account.json`
 3. **Paste your actual Firebase service account JSON content**
 
@@ -87,11 +101,12 @@ Use the render.yaml file:
 
 ### Backend:
 - `FLASK_ENV=production`
-- `FIREBASE_DATABASE_URL=your-database-url`
-- `ALLOWED_ORIGINS=your-frontend-url`
+- `FIREBASE_DATABASE_URL=https://cashtrack-182df-default-rtdb.asia-southeast1.firebasedatabase.app`
+- `ALLOWED_ORIGINS=https://cash-track-frontend.onrender.com`
+- `FIREBASE_SERVICE_ACCOUNT_JSON=your-service-account-json` (single line)
 
 ### Frontend:
-- `NEXT_PUBLIC_API_URL=your-backend-url`
+- `NEXT_PUBLIC_API_URL=https://cash-track-backend.onrender.com`
 - All Firebase config variables (copy from your .env.local)
 
 ## Troubleshooting
@@ -116,5 +131,5 @@ Use the render.yaml file:
 - Slower cold starts
 
 Your app will be available at:
-- **Frontend**: https://your-frontend-name.onrender.com
-- **Backend API**: https://your-backend-name.onrender.com
+- **Frontend**: https://cash-track-frontend.onrender.com
+- **Backend API**: https://cash-track-backend.onrender.com
