@@ -10,6 +10,9 @@ instance/
 .env.local
 backend/venv/
 
+# Firebase credentials (contains sensitive keys)
+backend/firebase-service-account.json
+
 # Node / Next.js
 frontend/node_modules/
 frontend/.next/

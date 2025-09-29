@@ -85,13 +85,7 @@ def get_transactions() -> List[Dict[str, Any]]:
     """Return transactions from Firebase or seed data if Firebase unavailable."""
     if firebase_store.firebase_available:
         transactions = firebase_store.get_transactions()
-        if transactions:
-            return transactions
-        else:
-            # If Firebase is available but empty, seed with initial data
-            for transaction in _SEED_TRANSACTIONS:
-                firebase_store.save_transaction(transaction)
-            return _SEED_TRANSACTIONS.copy()
+        return transactions if transactions else []
     else:
         # Fallback to seed data for development
         return [transaction.copy() for transaction in _SEED_TRANSACTIONS]
@@ -116,7 +110,7 @@ def add_transaction(
         "date": (date or datetime.utcnow()).isoformat() + "Z",
     }
     
-    # Save to Firebase (or add to seed data if Firebase unavailable)
+    # Save to Firebase
     if firebase_store.firebase_available:
         firebase_store.save_transaction(transaction)
     else:
@@ -168,13 +162,7 @@ def get_stocks() -> List[Dict[str, Any]]:
     """Return stocks from Firebase or seed data if Firebase unavailable."""
     if firebase_store.firebase_available:
         stocks = firebase_store.get_stocks()
-        if stocks:
-            return stocks
-        else:
-            # If Firebase is available but empty, seed with initial data
-            for stock in _SEED_STOCKS:
-                firebase_store.save_stock(stock)
-            return _SEED_STOCKS.copy()
+        return stocks if stocks else []
     else:
         # Fallback to seed data for development
         return [stock.copy() for stock in _SEED_STOCKS]
