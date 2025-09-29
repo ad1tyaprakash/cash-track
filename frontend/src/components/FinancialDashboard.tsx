@@ -210,8 +210,9 @@ export function FinancialDashboard({ initialData }: FinancialDashboardProps) {
   )
 
   const selectedStockOption = useMemo(() => {
+    if (!overview) return null
     return overview.available_stocks.find((option) => option.symbol === stockForm.ticker)
-  }, [overview.available_stocks, stockForm.ticker])
+  }, [overview?.available_stocks, stockForm.ticker])
 
   const handleStockSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -266,22 +267,24 @@ export function FinancialDashboard({ initialData }: FinancialDashboardProps) {
   )
 
   const expenseChartData = useMemo(() => {
+    if (!overview) return []
     const labels = overview.expense_breakdown.labels
     const values = overview.expense_breakdown.data
     return labels.map((label, index) => ({
       name: label,
       value: Number(values[index] ?? 0),
     }))
-  }, [overview.expense_breakdown])
+  }, [overview?.expense_breakdown])
 
   const netWorthChartData = useMemo(() => {
+    if (!overview) return []
     const labels = overview.net_worth_breakdown.labels
     const values = overview.net_worth_breakdown.data
     return labels.map((label, index) => ({
       name: label,
       value: Number(values[index] ?? 0),
     }))
-  }, [overview.net_worth_breakdown])
+  }, [overview?.net_worth_breakdown])
 
   const hasExpenseData = expenseChartData.some((item) => item.value > 0)
   const hasNetWorthData = netWorthChartData.some((item) => item.value > 0)
