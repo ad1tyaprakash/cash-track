@@ -23,7 +23,7 @@ git push origin main
    - **Root Directory**: `backend`
    - **Runtime**: `Python`
    - **Build Command**: `./build.sh`
-   - **Start Command**: `gunicorn --config gunicorn.conf.py app:create_app`
+   - **Start Command**: `gunicorn --config gunicorn.conf.py app:app`
 
 4. **Set Environment Variables:**
    ```

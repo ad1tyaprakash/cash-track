@@ -43,6 +43,10 @@ def create_app() -> Flask:
     return app
 
 
+# Create app instance for gunicorn
+app = create_app()
+
+
 def run() -> None:
     """Run the server."""
     app = create_app()
