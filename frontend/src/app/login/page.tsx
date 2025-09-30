@@ -8,6 +8,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
 } from "firebase/auth"
 
 import { useAuth } from "@/components/auth-provider"
@@ -32,6 +34,23 @@ export default function LoginPage() {
       router.replace("/dashboard")
     }
   }, [user, router])
+
+  // Check for redirect result on component mount
+  useEffect(() => {
+    const checkRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth)
+        if (result) {
+          console.log('✅ Google redirect sign-in successful:', result.user.email)
+          router.replace("/dashboard")
+        }
+      } catch (err: any) {
+        console.error('❌ Redirect result error:', err)
+        setError(`Sign-in failed: ${err.message}`)
+      }
+    }
+    checkRedirectResult()
+  }, [])
 
   const handleAuth = async (mode: "login" | "register") => {
     setError(null)
@@ -58,13 +77,68 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setError(null)
+    const provider = new GoogleAuthProvider()
+    
+    // Add additional scopes if needed
+    provider.addScope('email')
+    provider.addScope('profile')
+    
     try {
       setIsSubmitting(true)
-      const provider = new GoogleAuthProvider()
-      await signInWithPopup(auth, provider)
-      router.replace("/dashboard")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Google sign-in failed")
+      
+      // Try popup first, fallback to redirect if blocked
+      try {
+        const result = await signInWithPopup(auth, provider)
+        console.log('✅ Google popup sign-in successful:', result.user.email)
+        router.replace("/dashboard")
+      } catch (popupError: any) {
+        // If popup is blocked, use redirect method
+        if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/cancelled-popup-request') {
+          console.log('🔄 Popup blocked, using redirect method...')
+          await signInWithRedirect(auth, provider)
+          // signInWithRedirect doesn't return immediately, it redirects the page
+          return
+        } else {
+          throw popupError
+        }
+      }
+    } catch (err: any) {
+      console.error('❌ Google sign-in error:', err)
+      
+      let errorMessage = "Google sign-in failed"
+      
+      // Handle specific Firebase Auth errors
+      switch (err.code) {
+        case 'auth/popup-closed-by-user':
+          errorMessage = "Sign-in was cancelled. Please try again."
+          break
+        case 'auth/popup-blocked':
+          errorMessage = "Pop-up was blocked. Redirecting to Google sign-in..."
+          // Fallback to redirect
+          try {
+            await signInWithRedirect(auth, provider)
+            return
+          } catch (redirectErr) {
+            errorMessage = "Unable to sign in with Google. Please try again."
+          }
+          break
+        case 'auth/cancelled-popup-request':
+          errorMessage = "Sign-in was cancelled. Please try again."
+          break
+        case 'auth/configuration-not-found':
+          errorMessage = "Google sign-in is not properly configured. Please contact support."
+          break
+        case 'auth/unauthorized-domain':
+          errorMessage = "This domain is not authorized for Google sign-in. Please contact support."
+          break
+        case 'auth/operation-not-allowed':
+          errorMessage = "Google sign-in is not enabled. Please contact support."
+          break
+        default:
+          errorMessage = `Google sign-in failed: ${err.message || 'Unknown error'}`
+      }
+      
+      setError(errorMessage)
     } finally {
       setIsSubmitting(false)
     }
@@ -91,7 +165,7 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isSubmitting}>
-              Continue with Google
+              {isSubmitting ? "Signing in..." : "Continue with Google"}
             </Button>
 
             <Tabs defaultValue="login" className="w-full">
