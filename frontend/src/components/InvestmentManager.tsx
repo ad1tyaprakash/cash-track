@@ -88,21 +88,50 @@ export function InvestmentManager({ investments, onInvestmentAdded, onInvestment
 
   const handleSubmit = async (isEdit = false) => {
     try {
-      if (!formData.type || !formData.name || !formData.purchase_value || !formData.current_value || !formData.purchase_date) {
+      // Improved validation that handles "0" values correctly
+      if (!formData.type || !formData.name.trim() || 
+          formData.purchase_value === '' || formData.current_value === '' || 
+          !formData.purchase_date) {
         toast.error("Please fill in all required fields")
+        return
+      }
+
+      // Validate custom type for "other" category
+      if (formData.type === 'other' && (!formData.custom_type || !formData.custom_type.trim())) {
+        toast.error("Please specify the custom investment type")
+        return
+      }
+
+      // Additional validation for numeric fields
+      const purchaseValue = parseFloat(formData.purchase_value)
+      const currentValue = parseFloat(formData.current_value)
+      
+      if (isNaN(purchaseValue) || purchaseValue < 0) {
+        toast.error("Please enter a valid purchase value")
+        return
+      }
+      
+      if (isNaN(currentValue) || currentValue < 0) {
+        toast.error("Please enter a valid current value")
+        return
+      }
+
+      // Validate quantity if provided
+      if (formData.quantity && (isNaN(parseFloat(formData.quantity)) || parseFloat(formData.quantity) < 0)) {
+        toast.error("Please enter a valid quantity")
         return
       }
 
       const investmentData: CreateInvestmentPayload = {
         type: formData.type,
-        name: formData.name,
-        description: formData.description,
-        purchase_value: parseFloat(formData.purchase_value),
-        current_value: parseFloat(formData.current_value),
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        purchase_value: purchaseValue,
+        current_value: currentValue,
         purchase_date: new Date(formData.purchase_date).toISOString(),
-        ...(formData.quantity && { quantity: parseFloat(formData.quantity) }),
-        ...(formData.location && { location: formData.location }),
-        ...(formData.type === 'other' && formData.custom_type && { custom_type: formData.custom_type })
+        ...(formData.quantity && formData.quantity.trim() !== '' && { quantity: parseFloat(formData.quantity) }),
+        ...(formData.location && formData.location.trim() !== '' && { location: formData.location.trim() }),
+        ...(formData.type === 'other' && formData.custom_type && formData.custom_type.trim() !== '' && { custom_type: formData.custom_type.trim() })
       }
 
       if (isEdit && editingInvestment) {
@@ -229,6 +258,7 @@ export function InvestmentManager({ investments, onInvestmentAdded, onInvestment
             id="quantity"
             type="number"
             step="any"
+            min="0"
             value={formData.quantity}
             onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
             placeholder="Number of shares/units"
@@ -243,6 +273,7 @@ export function InvestmentManager({ investments, onInvestmentAdded, onInvestment
             id="purchase_value"
             type="number"
             step="0.01"
+            min="0"
             value={formData.purchase_value}
             onChange={(e) => setFormData({ ...formData, purchase_value: e.target.value })}
             placeholder="0.00"
@@ -254,6 +285,7 @@ export function InvestmentManager({ investments, onInvestmentAdded, onInvestment
             id="current_value"
             type="number"
             step="0.01"
+            min="0"
             value={formData.current_value}
             onChange={(e) => setFormData({ ...formData, current_value: e.target.value })}
             placeholder="0.00"
@@ -384,7 +416,10 @@ export function InvestmentManager({ investments, onInvestmentAdded, onInvestment
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={() => {
+              resetForm()
+              setEditingInvestment(null)
+            }}>
               <Plus className="h-4 w-4 mr-2" />
               Add Investment
             </Button>
