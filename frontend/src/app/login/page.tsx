@@ -68,8 +68,25 @@ export default function LoginPage() {
         await createUserWithEmailAndPassword(auth, email, password)
       }
       router.replace("/dashboard")
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+    } catch (err: any) {
+      console.error('❌ Email/Password auth error:', err)
+      
+      // Handle account linking for existing Google users
+      if (err.code === 'auth/account-exists-with-different-credential') {
+        setError("An account with this email already exists. Please sign in with Google first, then you can add email/password login in your profile settings.")
+      } else if (err.code === 'auth/email-already-in-use' && mode === 'register') {
+        setError("An account with this email already exists. Please sign in instead, or use 'Forgot Password' if needed.")
+      } else if (err.code === 'auth/user-not-found') {
+        setError("No account found with this email. Please register first.")
+      } else if (err.code === 'auth/wrong-password') {
+        setError("Incorrect password. Please try again or use 'Forgot Password'.")
+      } else if (err.code === 'auth/invalid-email') {
+        setError("Please enter a valid email address.")
+      } else if (err.code === 'auth/weak-password') {
+        setError("Password should be at least 6 characters long.")
+      } else {
+        setError(err.message || "Authentication failed")
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -92,6 +109,13 @@ export default function LoginPage() {
         console.log('✅ Google popup sign-in successful:', result.user.email)
         router.replace("/dashboard")
       } catch (popupError: any) {
+        // Handle account exists with different credential
+        if (popupError.code === 'auth/account-exists-with-different-credential') {
+          const email = popupError.customData?.email
+          setError(`An account with email ${email} already exists with email/password login. Please sign in with your email and password first, then you can link your Google account in profile settings.`)
+          return
+        }
+        
         // If popup is blocked, use redirect method
         if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/cancelled-popup-request') {
           console.log('🔄 Popup blocked, using redirect method...')
@@ -109,6 +133,10 @@ export default function LoginPage() {
       
       // Handle specific Firebase Auth errors
       switch (err.code) {
+        case 'auth/account-exists-with-different-credential':
+          const email = err.customData?.email || 'this email'
+          errorMessage = `An account with ${email} already exists with email/password login. Please sign in with your email and password first.`
+          break
         case 'auth/popup-closed-by-user':
           errorMessage = "Sign-in was cancelled. Please try again."
           break

@@ -1,4 +1,4 @@
-"""Firebase Realtime Database service for Cash Track."""
+"""Firebase Realtime Database service for Cash Track with user isolation."""
 import firebase_admin
 from firebase_admin import credentials, db
 import json
@@ -8,7 +8,7 @@ from datetime import datetime
 from services.firebase import initialize_app
 
 class FirebaseDataStore:
-    """Firebase Realtime Database data store for transactions and stocks."""
+    """Firebase Realtime Database data store for transactions and stocks with user isolation."""
     
     def __init__(self):
         self.firebase_available = self._check_firebase_availability()
@@ -21,23 +21,25 @@ class FirebaseDataStore:
         except Exception as e:
             return False
         
-    def _get_ref(self, path: str):
-        """Get Firebase database reference."""
-        if not self.firebase_available:
+    def _get_user_ref(self, user_id: str, path: str):
+        """Get Firebase database reference for a specific user's data."""
+        if not self.firebase_available or not user_id:
             return None
         try:
-            return db.reference(path)
+            # User-specific path: users/{user_id}/{data_type}
+            user_path = f"users/{user_id}/{path}"
+            return db.reference(user_path)
         except Exception as e:
             return None
     
     # Transaction methods
-    def save_transaction(self, transaction: Dict[str, Any]) -> Dict[str, Any]:
-        """Save a transaction to Firebase."""
-        if not self.firebase_available:
+    def save_transaction(self, user_id: str, transaction: Dict[str, Any]) -> Dict[str, Any]:
+        """Save a transaction to Firebase for a specific user."""
+        if not self.firebase_available or not user_id:
             return transaction
             
         try:
-            ref = self._get_ref('transactions')
+            ref = self._get_user_ref(user_id, 'transactions')
             if ref:
                 ref.child(transaction['id']).set(transaction)
         except Exception as e:
@@ -45,13 +47,13 @@ class FirebaseDataStore:
         
         return transaction
     
-    def get_transactions(self) -> List[Dict[str, Any]]:
-        """Get all transactions from Firebase."""
-        if not self.firebase_available:
+    def get_transactions(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get all transactions from Firebase for a specific user."""
+        if not self.firebase_available or not user_id:
             return []
             
         try:
-            ref = self._get_ref('transactions')
+            ref = self._get_user_ref(user_id, 'transactions')
             if ref:
                 transactions_data = ref.get()
                 if transactions_data:
@@ -65,13 +67,13 @@ class FirebaseDataStore:
         
         return []
     
-    def delete_transaction(self, transaction_id: str) -> bool:
-        """Delete a transaction from Firebase."""
-        if not self.firebase_available:
+    def delete_transaction(self, user_id: str, transaction_id: str) -> bool:
+        """Delete a transaction from Firebase for a specific user."""
+        if not self.firebase_available or not user_id:
             return False
             
         try:
-            ref = self._get_ref(f'transactions/{transaction_id}')
+            ref = self._get_user_ref(user_id, f'transactions/{transaction_id}')
             if ref:
                 ref.delete()
                 return True
@@ -81,13 +83,13 @@ class FirebaseDataStore:
         return False
     
     # Stock methods
-    def save_stock(self, stock: Dict[str, Any]) -> Dict[str, Any]:
-        """Save a stock position to Firebase."""
-        if not self.firebase_available:
+    def save_stock(self, user_id: str, stock: Dict[str, Any]) -> Dict[str, Any]:
+        """Save a stock position to Firebase for a specific user."""
+        if not self.firebase_available or not user_id:
             return stock
             
         try:
-            ref = self._get_ref('stocks')
+            ref = self._get_user_ref(user_id, 'stocks')
             if ref:
                 ref.child(stock['ticker']).set(stock)
         except Exception as e:
@@ -95,13 +97,13 @@ class FirebaseDataStore:
         
         return stock
     
-    def get_stocks(self) -> List[Dict[str, Any]]:
-        """Get all stocks from Firebase."""
-        if not self.firebase_available:
+    def get_stocks(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get all stocks from Firebase for a specific user."""
+        if not self.firebase_available or not user_id:
             return []
             
         try:
-            ref = self._get_ref('stocks')
+            ref = self._get_user_ref(user_id, 'stocks')
             if ref:
                 stocks_data = ref.get()
                 if stocks_data and isinstance(stocks_data, dict):
@@ -111,13 +113,13 @@ class FirebaseDataStore:
         
         return []
     
-    def delete_stock(self, ticker: str) -> bool:
-        """Delete a stock position from Firebase."""
-        if not self.firebase_available:
+    def delete_stock(self, user_id: str, ticker: str) -> bool:
+        """Delete a stock position from Firebase for a specific user."""
+        if not self.firebase_available or not user_id:
             return False
             
         try:
-            ref = self._get_ref(f'stocks/{ticker}')
+            ref = self._get_user_ref(user_id, f'stocks/{ticker}')
             if ref:
                 ref.delete()
                 return True

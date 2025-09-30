@@ -5,8 +5,11 @@ import {
   CreditCardIcon,
   LogOutIcon,
   MoreVerticalIcon,
+  SettingsIcon,
   UserCircleIcon,
 } from "lucide-react"
+import Link from "next/link"
+import { useAuth } from "@/components/auth-provider"
 
 import {
   Avatar,
@@ -39,6 +42,15 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const { signOut } = useAuth()
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Sign out error:', error)
+    }
+  }
 
   return (
     <SidebarMenu>
@@ -84,6 +96,12 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              <DropdownMenuItem asChild>
+                <Link href="/profile">
+                  <SettingsIcon />
+                  Profile Settings
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem>
                 <UserCircleIcon />
                 Account
@@ -98,6 +116,10 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleSignOut}>
+              <LogOutIcon />
+              Log out
+            </DropdownMenuItem>
             <DropdownMenuItem>
               <LogOutIcon />
               Log out

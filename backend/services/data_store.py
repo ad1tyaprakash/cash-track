@@ -1,10 +1,11 @@
-"""Firebase Realtime Database data store for the cash-track backend."""
+"""Firebase Realtime Database data store for the cash-track backend with user isolation."""
 from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Tuple
 from services.firebase_db import get_firebase_store
+from services.auth import get_current_user_id
 
 # Get Firebase store instance
 firebase_store = get_firebase_store()
@@ -71,9 +72,13 @@ _SEED_STOCKS: List[Dict[str, Any]] = [
 
 
 def _next_transaction_id() -> str:
-    """Generate the next transaction ID based on existing Firebase data."""
+    """Generate the next transaction ID based on existing Firebase data for current user."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return "1"
+        
     if firebase_store.firebase_available:
-        transactions = firebase_store.get_transactions()
+        transactions = firebase_store.get_transactions(user_id)
         if transactions:
             # Get the highest ID and increment
             try:
@@ -90,9 +95,13 @@ def _next_transaction_id() -> str:
 
 
 def get_transactions() -> List[Dict[str, Any]]:
-    """Return transactions from Firebase or empty list for new users."""
+    """Return transactions from Firebase for current user or empty list for new users."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return []
+        
     if firebase_store.firebase_available:
-        transactions = firebase_store.get_transactions()
+        transactions = firebase_store.get_transactions(user_id)
         return transactions if transactions else []
     else:
         # Fallback to seed data for development only
@@ -107,7 +116,11 @@ def add_transaction(
     category: str,
     date: datetime | None = None,
 ) -> Dict[str, Any]:
-    """Add a transaction to Firebase."""
+    """Add a transaction to Firebase for current user."""
+    user_id = get_current_user_id()
+    if not user_id:
+        raise ValueError("User must be authenticated to add transactions")
+        
     transaction = {
         "id": _next_transaction_id(),
         "title": title,
@@ -120,7 +133,7 @@ def add_transaction(
     
     # Save to Firebase
     if firebase_store.firebase_available:
-        return firebase_store.save_transaction(transaction)
+        return firebase_store.save_transaction(user_id, transaction)
     else:
         # For development without Firebase, add to seed data
         _SEED_TRANSACTIONS.append(transaction)
@@ -128,10 +141,14 @@ def add_transaction(
 
 
 def delete_transaction(transaction_id: str) -> bool:
-    """Remove a transaction from Firebase."""
+    """Remove a transaction from Firebase for current user."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return False
+        
     if firebase_store.firebase_available:
         # Delete from Firebase
-        return firebase_store.delete_transaction(transaction_id)
+        return firebase_store.delete_transaction(user_id, transaction_id)
     else:
         # For development without Firebase, remove from seed data
         global _SEED_TRANSACTIONS
@@ -166,9 +183,13 @@ def expense_breakdown() -> Dict[str, float]:
 
 
 def get_stocks() -> List[Dict[str, Any]]:
-    """Return stocks from Firebase or empty list for new users."""
+    """Return stocks from Firebase for current user or empty list for new users."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return []
+        
     if firebase_store.firebase_available:
-        stocks = firebase_store.get_stocks()
+        stocks = firebase_store.get_stocks(user_id)
         return stocks if stocks else []
     else:
         # Fallback to seed data for development only
@@ -182,7 +203,11 @@ def add_stock(
     purchase_price: float,
     current_price: float | None = None,
 ) -> Dict[str, Any]:
-    """Persist a stock position to Firebase. Default to reference price when current price is missing."""
+    """Persist a stock position to Firebase for current user. Default to reference price when current price is missing."""
+    user_id = get_current_user_id()
+    if not user_id:
+        raise ValueError("User must be authenticated to add stocks")
+        
     reference = next(
         (item for item in _AVAILABLE_STOCKS if item["symbol"] == ticker),
         None,
@@ -201,7 +226,7 @@ def add_stock(
     
     # Save to Firebase (or add to seed data if Firebase unavailable)
     if firebase_store.firebase_available:
-        firebase_store.save_stock(stock)
+        firebase_store.save_stock(user_id, stock)
     else:
         # For development without Firebase, add to seed data
         _SEED_STOCKS.append(stock)
@@ -210,10 +235,14 @@ def add_stock(
 
 
 def delete_stock(ticker: str) -> bool:
-    """Remove a stock position from Firebase."""
+    """Remove a stock position from Firebase for current user."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return False
+        
     if firebase_store.firebase_available:
         # Delete from Firebase
-        return firebase_store.delete_stock(ticker)
+        return firebase_store.delete_stock(user_id, ticker)
     else:
         # For development without Firebase, remove from seed data
         global _SEED_STOCKS
@@ -311,7 +340,8 @@ def initialize_firebase_data():
     
     # Just verify Firebase connection, don't seed any data
     try:
-        firebase_store.get_transactions()
+        # Use a dummy user ID for connection test
+        firebase_store.get_transactions("connection_test")
     except Exception:
         pass
 

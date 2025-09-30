@@ -1,0 +1,18 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid",
+        "transactions": {
+          ".read": "$uid === auth.uid",
+          ".write": "$uid === auth.uid"
+        },
+        "stocks": {
+          ".read": "$uid === auth.uid", 
+          ".write": "$uid === auth.uid"
+        }
+      }
+    }
+  }
+}

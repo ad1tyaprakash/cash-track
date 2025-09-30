@@ -1,13 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { User, onAuthStateChanged } from "firebase/auth"
+import { User, onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth"
 
 import { auth } from "@/lib/firebase"
 
 type AuthContextType = {
   user: User | null
   loading: boolean
+  signOut: () => Promise<void>
 }
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined)
@@ -29,7 +30,16 @@ export function AuthProvider({
     return () => unsubscribe()
   }, [])
 
-  const value = React.useMemo(() => ({ user, loading }), [user, loading])
+  const signOut = React.useCallback(async () => {
+    try {
+      await firebaseSignOut(auth)
+    } catch (error) {
+      console.error('Sign out error:', error)
+      throw error
+    }
+  }, [])
+
+  const value = React.useMemo(() => ({ user, loading, signOut }), [user, loading, signOut])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
