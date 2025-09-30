@@ -120,10 +120,6 @@ export function NavUser({
               <LogOutIcon />
               Log out
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <LogOutIcon />
-              Log out
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

@@ -12,6 +12,7 @@ import {
   type DashboardOverview,
   type StockOption,
 } from "@/lib/api"
+import { useAuth } from "@/components/auth-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -69,26 +70,30 @@ interface FinancialDashboardProps {
 }
 
 export function FinancialDashboard({ initialData }: FinancialDashboardProps) {
+  const { user } = useAuth()
   const [overview, setOverview] = useState(initialData || null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isLoading, setIsLoading] = useState(!initialData)
+  const [error, setError] = useState<string | null>(null)
   
   useEffect(() => {
-    if (!initialData) {
+    if (!initialData && user) {
       const fetchData = async () => {
         try {
           setIsLoading(true)
+          setError(null)
           const data = await getDashboardOverview()
           setOverview(data)
         } catch (error) {
           console.error("Failed to load dashboard overview", error)
+          setError("Failed to load dashboard data. Please check your connection and try again.")
         } finally {
           setIsLoading(false)
         }
       }
       fetchData()
     }
-  }, [initialData])
+  }, [initialData, user])
   const [incomeMessage, setIncomeMessage] = useState<string | null>(null)
   const [expenseMessage, setExpenseMessage] = useState<string | null>(null)
   const [stockMessage, setStockMessage] = useState<string | null>(null)
@@ -117,16 +122,20 @@ export function FinancialDashboard({ initialData }: FinancialDashboardProps) {
   })
 
   const refreshOverview = useCallback(async () => {
+    if (!user) return
+    
     setIsRefreshing(true)
     try {
+      setError(null)
       const data = await getDashboardOverview()
       setOverview(data)
     } catch (error) {
       console.error("Failed to refresh dashboard overview", error)
+      setError("Failed to refresh dashboard data. Please try again.")
     } finally {
       setIsRefreshing(false)
     }
-  }, [])
+  }, [user])
 
   const handleIncomeSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -292,18 +301,24 @@ export function FinancialDashboard({ initialData }: FinancialDashboardProps) {
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center px-4 pb-10">
-        <div className="w-full max-w-md rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          Loading dashboard data...
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading your dashboard...</p>
         </div>
       </div>
     )
   }
 
-  if (!overview) {
+  if (error || !overview) {
     return (
       <div className="flex flex-1 items-center justify-center px-4 pb-10">
-        <div className="w-full max-w-md rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          We couldn&apos;t load your dashboard data right now. Please try refreshing the page.
+        <div className="w-full max-w-md rounded-lg border border-dashed p-8 text-center">
+          <p className="text-sm text-muted-foreground mb-4">
+            {error || "We couldn't load your dashboard data right now."}
+          </p>
+          <Button onClick={refreshOverview} disabled={isRefreshing}>
+            {isRefreshing ? "Refreshing..." : "Try Again"}
+          </Button>
         </div>
       </div>
     )

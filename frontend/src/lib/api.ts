@@ -1,4 +1,25 @@
+import { auth } from "./firebase";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001";
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+  };
+
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  } catch (error) {
+    console.error("Failed to get auth token:", error);
+  }
+
+  return headers;
+}
 
 interface CreateTransactionPayload {
   title: string;
@@ -102,35 +123,39 @@ export async function listPosts(): Promise<Transaction[]> {
 }
 
 export async function getDashboardOverview(): Promise<DashboardOverview> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${BASE_URL}/api/dashboard/overview`, {
-    headers: { Accept: "application/json" },
+    headers,
     cache: "no-store",
   });
   return handleResponse<DashboardOverview>(response);
 }
 
 export async function createIncome(payload: CreateIncomePayload): Promise<Transaction> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${BASE_URL}/api/dashboard/income`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(payload),
   });
   return handleResponse<Transaction>(response);
 }
 
 export async function createExpense(payload: CreateExpensePayload): Promise<Transaction> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${BASE_URL}/api/dashboard/expense`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(payload),
   });
   return handleResponse<Transaction>(response);
 }
 
 export async function createStock(payload: CreateStockPayload): Promise<StockEntry> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${BASE_URL}/api/dashboard/stock`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(payload),
   });
   return handleResponse<StockEntry>(response);
@@ -167,23 +192,28 @@ export async function getSummary(): Promise<Summary> {
 }
 
 export async function getTransactions(): Promise<Transaction[]> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${BASE_URL}/api/dashboard/transactions`, {
-    headers: { Accept: "application/json" },
+    headers,
     cache: "no-store",
   });
   return handleResponse<Transaction[]>(response);
 }
 
 export async function deleteTransaction(transactionId: string): Promise<void> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${BASE_URL}/api/dashboard/transaction/${transactionId}`, {
     method: "DELETE",
+    headers,
   });
   await handleResponse<{ message: string }>(response);
 }
 
 export async function deleteStock(ticker: string): Promise<void> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${BASE_URL}/api/dashboard/stock/${ticker}`, {
     method: "DELETE",
+    headers,
   });
   await handleResponse<{ message: string }>(response);
 }
