@@ -70,6 +70,31 @@ _SEED_STOCKS: List[Dict[str, Any]] = [
     },
 ]
 
+_SEED_INVESTMENTS: List[Dict[str, Any]] = [
+    {
+        "id": "inv1",
+        "type": "property",
+        "name": "Downtown Apartment",
+        "description": "2BR/2BA apartment in downtown area",
+        "purchase_value": 250000.00,
+        "current_value": 280000.00,
+        "purchase_date": "2023-01-15T00:00:00Z",
+        "last_updated": "2025-09-25T00:00:00Z",
+        "location": "New York, NY"
+    },
+    {
+        "id": "inv2", 
+        "type": "mutual_fund",
+        "name": "Vanguard Total Stock Market",
+        "description": "Diversified equity fund",
+        "purchase_value": 10000.00,
+        "current_value": 11500.00,
+        "purchase_date": "2024-03-10T00:00:00Z",
+        "last_updated": "2025-09-25T00:00:00Z",
+        "quantity": 112.5
+    }
+]
+
 
 def _next_transaction_id() -> str:
     """Generate the next transaction ID based on existing Firebase data for current user."""
@@ -92,6 +117,29 @@ def _next_transaction_id() -> str:
     else:
         # Fallback for development without Firebase
         return str(len(_SEED_TRANSACTIONS) + 1)
+
+
+def _next_investment_id() -> str:
+    """Generate the next investment ID based on existing Firebase data for current user."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return "inv1"
+        
+    if firebase_store.firebase_available:
+        investments = firebase_store.get_investments(user_id)
+        if investments:
+            # Get the highest numeric ID and increment
+            try:
+                max_id = max(int(inv.get("id", "inv0")[3:]) for inv in investments if inv.get("id", "").startswith("inv"))
+                return f"inv{max_id + 1}"
+            except (ValueError, TypeError):
+                # If there's an issue with ID parsing, use length + 1
+                return f"inv{len(investments) + 1}"
+        # No investments exist, start with inv1
+        return "inv1"
+    else:
+        # Fallback for development without Firebase
+        return f"inv{len(_SEED_INVESTMENTS) + 1}"
 
 
 def get_transactions() -> List[Dict[str, Any]]:
@@ -180,6 +228,124 @@ def expense_breakdown() -> Dict[str, float]:
             counter[transaction["category"]] += abs(transaction["amount"])
     # Preserve insertion order for deterministic output.
     return dict(counter)
+
+
+def get_investments() -> List[Dict[str, Any]]:
+    """Return investments from Firebase for current user or empty list for new users."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return []
+        
+    if firebase_store.firebase_available:
+        investments = firebase_store.get_investments(user_id)
+        return investments if investments else []
+    else:
+        # Fallback to seed data for development only
+        return [investment.copy() for investment in _SEED_INVESTMENTS]
+
+
+def add_investment(
+    investment_type: str,
+    name: str,
+    purchase_value: float,
+    current_value: float,
+    purchase_date: datetime,
+    description: str = "",
+    quantity: float | None = None,
+    location: str = "",
+    custom_type: str = ""
+) -> Dict[str, Any]:
+    """Add an investment to Firebase for current user."""
+    user_id = get_current_user_id()
+    if not user_id:
+        raise ValueError("User must be authenticated to add investments")
+        
+    investment = {
+        "id": _next_investment_id(),
+        "type": investment_type,
+        "name": name,
+        "description": description,
+        "purchase_value": float(purchase_value),
+        "current_value": float(current_value),
+        "purchase_date": purchase_date.isoformat() + "Z",
+        "last_updated": datetime.utcnow().isoformat() + "Z",
+    }
+    
+    # Add optional fields if provided
+    if quantity is not None:
+        investment["quantity"] = float(quantity)
+    if location:
+        investment["location"] = location
+    if custom_type:
+        investment["custom_type"] = custom_type
+    
+    # Save to Firebase
+    if firebase_store.firebase_available:
+        return firebase_store.save_investment(user_id, investment)
+    else:
+        # For development without Firebase, add to seed data
+        _SEED_INVESTMENTS.append(investment)
+        return investment
+
+
+def update_investment(
+    investment_id: str,
+    **updates
+) -> Dict[str, Any] | None:
+    """Update an investment in Firebase for current user."""
+    user_id = get_current_user_id()
+    if not user_id:
+        raise ValueError("User must be authenticated to update investments")
+        
+    if firebase_store.firebase_available:
+        # Get current investment
+        investments = firebase_store.get_investments(user_id)
+        investment = next((inv for inv in investments if inv.get("id") == investment_id), None)
+        if not investment:
+            return None
+            
+        # Update fields
+        investment.update(updates)
+        investment["last_updated"] = datetime.utcnow().isoformat() + "Z"
+        
+        # Save back to Firebase
+        return firebase_store.save_investment(user_id, investment)
+    else:
+        # For development without Firebase, update seed data
+        for i, investment in enumerate(_SEED_INVESTMENTS):
+            if investment["id"] == investment_id:
+                _SEED_INVESTMENTS[i].update(updates)
+                _SEED_INVESTMENTS[i]["last_updated"] = datetime.utcnow().isoformat() + "Z"
+                return _SEED_INVESTMENTS[i]
+        return None
+
+
+def delete_investment(investment_id: str) -> bool:
+    """Remove an investment from Firebase for current user."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return False
+        
+    if firebase_store.firebase_available:
+        # Delete from Firebase
+        return firebase_store.delete_investment(user_id, investment_id)
+    else:
+        # For development without Firebase, remove from seed data
+        global _SEED_INVESTMENTS
+        before = len(_SEED_INVESTMENTS)
+        _SEED_INVESTMENTS = [inv for inv in _SEED_INVESTMENTS if inv["id"] != investment_id]
+        return len(_SEED_INVESTMENTS) < before
+    """Return stocks from Firebase for current user or empty list for new users."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return []
+        
+    if firebase_store.firebase_available:
+        stocks = firebase_store.get_stocks(user_id)
+        return stocks if stocks else []
+    else:
+        # Fallback to seed data for development only
+        return [stock.copy() for stock in _SEED_STOCKS]
 
 
 def get_stocks() -> List[Dict[str, Any]]:
@@ -293,8 +459,10 @@ def dashboard_overview() -> Dict[str, Any]:
     """Return the aggregated dashboard payload expected by the frontend."""
     summary = transaction_summary()
     stocks = stock_positions()
+    investments = get_investments()
 
     total_stock_value = sum(item["current_value"] for item in stocks)
+    total_investment_value = sum(item["current_value"] for item in investments)
     total_savings = max(summary["income"] - summary["expenses"], 0.0)
     deficit = summary["income"] - summary["expenses"]
 
@@ -302,13 +470,13 @@ def dashboard_overview() -> Dict[str, Any]:
     expense_labels = list(expense_data.keys())
     expense_values = [expense_data[label] for label in expense_labels]
 
-    assets = total_stock_value + total_savings
+    assets = total_stock_value + total_investment_value + total_savings
     liabilities = max(summary["expenses"] - summary["income"], 0.0)
 
     return {
-        "net_worth": round(total_stock_value, 2),
+        "net_worth": round(total_stock_value + total_investment_value, 2),
         "total_savings": round(total_savings, 2),
-        "total_net_worth": round(total_stock_value + total_savings, 2),
+        "total_net_worth": round(total_stock_value + total_investment_value + total_savings, 2),
         "deficit": round(deficit, 2),
         "expense_breakdown": {
             "labels": expense_labels,
@@ -319,6 +487,7 @@ def dashboard_overview() -> Dict[str, Any]:
             "data": [round(assets, 2), round(liabilities, 2)],
         },
         "stock_data": stocks,
+        "investment_data": investments,
         "available_stocks": [
             {
                 "symbol": item["symbol"],

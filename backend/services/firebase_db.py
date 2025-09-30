@@ -127,6 +127,52 @@ class FirebaseDataStore:
             pass
         
         return False
+    
+    # Investment methods
+    def save_investment(self, user_id: str, investment: Dict[str, Any]) -> Dict[str, Any]:
+        """Save an investment to Firebase for a specific user."""
+        if not self.firebase_available or not user_id:
+            return investment
+            
+        try:
+            ref = self._get_user_ref(user_id, 'investments')
+            if ref:
+                ref.child(investment['id']).set(investment)
+        except Exception as e:
+            pass
+        
+        return investment
+    
+    def get_investments(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get all investments from Firebase for a specific user."""
+        if not self.firebase_available or not user_id:
+            return []
+            
+        try:
+            ref = self._get_user_ref(user_id, 'investments')
+            if ref:
+                investments_data = ref.get()
+                if investments_data and isinstance(investments_data, dict):
+                    return list(investments_data.values())
+        except Exception as e:
+            pass
+        
+        return []
+    
+    def delete_investment(self, user_id: str, investment_id: str) -> bool:
+        """Delete an investment from Firebase for a specific user."""
+        if not self.firebase_available or not user_id:
+            return False
+            
+        try:
+            ref = self._get_user_ref(user_id, f'investments/{investment_id}')
+            if ref:
+                ref.delete()
+                return True
+        except Exception as e:
+            pass
+        
+        return False
 
 # Global instance using singleton pattern
 _firebase_store_instance = None

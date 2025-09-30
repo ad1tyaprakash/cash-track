@@ -6,15 +6,23 @@ import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { getDashboardOverview, type DashboardOverview } from "@/lib/api"
 import { StockManager } from "@/components/StockManager"
+import { InvestmentManager } from "@/components/InvestmentManager"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TrendingUp, DollarSign, Target, BarChart3 } from "lucide-react"
 
 function InvestmentsContent({ overview }: { overview: DashboardOverview }) {
-  // Calculate investment metrics
-  const totalInvestmentValue = overview.stock_data.reduce((sum, stock) => sum + stock.current_value, 0)
-  const totalCostBasis = overview.stock_data.reduce((sum, stock) => sum + (stock.quantity * stock.purchase_price), 0)
-  const totalGainLoss = totalInvestmentValue - totalCostBasis
-  const totalReturnPercent = totalCostBasis > 0 ? (totalGainLoss / totalCostBasis) * 100 : 0
+  // Calculate investment metrics (stocks + other investments)
+  const totalStockValue = overview.stock_data.reduce((sum, stock) => sum + stock.current_value, 0)
+  const totalStockCost = overview.stock_data.reduce((sum, stock) => sum + (stock.quantity * stock.purchase_price), 0)
+  
+  const totalInvestmentValue = (overview.investment_data || []).reduce((sum, inv) => sum + inv.current_value, 0)
+  const totalInvestmentCost = (overview.investment_data || []).reduce((sum, inv) => sum + inv.purchase_value, 0)
+  
+  const totalPortfolioValue = totalStockValue + totalInvestmentValue
+  const totalPortfolioCost = totalStockCost + totalInvestmentCost
+  const totalGainLoss = totalPortfolioValue - totalPortfolioCost
+  const totalReturnPercent = totalPortfolioCost > 0 ? (totalGainLoss / totalPortfolioCost) * 100 : 0
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -47,7 +55,7 @@ function InvestmentsContent({ overview }: { overview: DashboardOverview }) {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalInvestmentValue)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(totalPortfolioValue)}</div>
             <p className="text-xs text-muted-foreground">Current portfolio value</p>
           </CardContent>
         </Card>
@@ -73,7 +81,7 @@ function InvestmentsContent({ overview }: { overview: DashboardOverview }) {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{overview.stock_data.length}</div>
+            <div className="text-2xl font-bold">{overview.stock_data.length + (overview.investment_data?.length || 0)}</div>
             <p className="text-xs text-muted-foreground">Active investments</p>
           </CardContent>
         </Card>
@@ -84,17 +92,35 @@ function InvestmentsContent({ overview }: { overview: DashboardOverview }) {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalCostBasis)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(totalPortfolioCost)}</div>
             <p className="text-xs text-muted-foreground">Total invested amount</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Investment Management */}
-      <StockManager 
-        stocks={overview.stock_data} 
-        onStockDeleted={() => window.location.reload()}
-      />
+      {/* Investment Management Tabs */}
+      <Tabs defaultValue="stocks" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="stocks">Stocks & Equities</TabsTrigger>
+          <TabsTrigger value="other">Properties & Other Investments</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="stocks" className="space-y-4">
+          <StockManager 
+            stocks={overview.stock_data} 
+            onStockDeleted={() => window.location.reload()}
+          />
+        </TabsContent>
+
+        <TabsContent value="other" className="space-y-4">
+          <InvestmentManager 
+            investments={overview.investment_data || []}
+            onInvestmentAdded={() => window.location.reload()}
+            onInvestmentUpdated={() => window.location.reload()}
+            onInvestmentDeleted={() => window.location.reload()}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

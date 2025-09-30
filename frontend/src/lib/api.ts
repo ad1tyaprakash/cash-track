@@ -38,6 +38,20 @@ export interface StockEntry {
   profit: number;
 }
 
+export interface Investment {
+  id: string;
+  type: 'property' | 'mutual_fund' | 'bond' | 'commodity' | 'crypto' | 'other';
+  name: string;
+  description?: string;
+  purchase_value: number;
+  current_value: number;
+  purchase_date: string;
+  last_updated: string;
+  quantity?: number;
+  location?: string;
+  custom_type?: string;
+}
+
 export interface StockOption {
   symbol: string;
   name: string;
@@ -58,6 +72,7 @@ export interface DashboardOverview {
     data: number[];
   };
   stock_data: StockEntry[];
+  investment_data: Investment[];
   available_stocks: StockOption[];
 }
 
@@ -212,6 +227,57 @@ export async function deleteTransaction(transactionId: string): Promise<void> {
 export async function deleteStock(ticker: string): Promise<void> {
   const headers = await getAuthHeaders();
   const response = await fetch(`${BASE_URL}/api/dashboard/stock/${ticker}`, {
+    method: "DELETE",
+    headers,
+  });
+  await handleResponse<{ message: string }>(response);
+}
+
+// Investment API functions
+export interface CreateInvestmentPayload {
+  type: string;
+  name: string;
+  description?: string;
+  purchase_value: number;
+  current_value: number;
+  purchase_date: string;
+  quantity?: number;
+  location?: string;
+  custom_type?: string;
+}
+
+export async function getInvestments(): Promise<Investment[]> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/api/dashboard/investments`, {
+    headers,
+    cache: "no-store",
+  });
+  return handleResponse<Investment[]>(response);
+}
+
+export async function addInvestment(payload: CreateInvestmentPayload): Promise<Investment> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/api/dashboard/investment`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<Investment>(response);
+}
+
+export async function updateInvestment(investmentId: string, payload: Partial<CreateInvestmentPayload>): Promise<Investment> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/api/dashboard/investment/${investmentId}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<Investment>(response);
+}
+
+export async function deleteInvestment(investmentId: string): Promise<void> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/api/dashboard/investment/${investmentId}`, {
     method: "DELETE",
     headers,
   });

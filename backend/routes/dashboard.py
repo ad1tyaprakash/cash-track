@@ -9,12 +9,16 @@ from services.auth import require_auth, get_current_user
 from services.data_store import (
     add_stock,
     add_transaction,
+    add_investment,
     available_stocks,
     dashboard_overview,
     delete_stock,
     delete_transaction,
+    delete_investment,
     enrich_stock,
     get_transactions,
+    get_investments,
+    update_investment,
 )
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -152,3 +156,85 @@ def delete_stock_endpoint(ticker):
         return {"message": "Stock position deleted successfully"}, 200
     else:
         return {"error": "Stock position not found"}, 404
+
+
+# Investment endpoints
+@dashboard_bp.get("/investments")
+@require_auth
+def get_investments_endpoint():
+    """Get all investments for authenticated user."""
+    return jsonify(get_investments())
+
+
+@dashboard_bp.post("/investment")
+@require_auth
+def add_investment_endpoint():
+    """Add an investment for authenticated user."""
+    data = request.get_json()
+    if not data:
+        return {"error": "No data provided"}, 400
+    
+    required_fields = ["type", "name", "purchase_value", "current_value", "purchase_date"]
+    for field in required_fields:
+        if field not in data:
+            return {"error": f"Missing required field: {field}"}, 400
+    
+    try:
+        # Parse purchase_date
+        purchase_date = datetime.fromisoformat(data["purchase_date"].replace("Z", "+00:00"))
+        
+        investment = add_investment(
+            investment_type=data["type"],
+            name=data["name"],
+            purchase_value=float(data["purchase_value"]),
+            current_value=float(data["current_value"]),
+            purchase_date=purchase_date,
+            description=data.get("description", ""),
+            quantity=float(data["quantity"]) if data.get("quantity") else None,
+            location=data.get("location", ""),
+            custom_type=data.get("custom_type", "")
+        )
+        return investment, 201
+    except (ValueError, TypeError, KeyError) as e:
+        return {"error": f"Invalid data: {str(e)}"}, 400
+
+
+@dashboard_bp.put("/investment/<investment_id>")
+@require_auth
+def update_investment_endpoint(investment_id):
+    """Update an investment for authenticated user."""
+    data = request.get_json()
+    if not data:
+        return {"error": "No data provided"}, 400
+    
+    try:
+        # Convert numeric fields
+        if "purchase_value" in data:
+            data["purchase_value"] = float(data["purchase_value"])
+        if "current_value" in data:
+            data["current_value"] = float(data["current_value"])
+        if "quantity" in data and data["quantity"]:
+            data["quantity"] = float(data["quantity"])
+        
+        # Parse purchase_date if provided
+        if "purchase_date" in data:
+            data["purchase_date"] = datetime.fromisoformat(data["purchase_date"].replace("Z", "+00:00")).isoformat() + "Z"
+        
+        investment = update_investment(investment_id, **data)
+        if investment:
+            return investment, 200
+        else:
+            return {"error": "Investment not found"}, 404
+    except (ValueError, TypeError) as e:
+        return {"error": f"Invalid data: {str(e)}"}, 400
+
+
+@dashboard_bp.delete("/investment/<investment_id>")
+@require_auth
+def delete_investment_endpoint(investment_id):
+    """Delete an investment for authenticated user."""
+    success = delete_investment(investment_id)
+    if success:
+        return {"message": "Investment deleted successfully"}, 200
+    else:
+        return {"error": "Investment not found"}, 404
