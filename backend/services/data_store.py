@@ -68,26 +68,34 @@ _SEED_STOCKS: List[Dict[str, Any]] = [
 
 
 def _next_transaction_id() -> str:
-    """Generate the next transaction ID based on Firebase data."""
+    """Generate the next transaction ID based on existing Firebase data."""
     if firebase_store.firebase_available:
         transactions = firebase_store.get_transactions()
         if transactions:
             # Get the highest ID and increment
-            max_id = max(int(t.get("id", "0")) for t in transactions if t.get("id", "0").isdigit())
-            return str(max_id + 1)
+            try:
+                max_id = max(int(t.get("id", "0")) for t in transactions if t.get("id", "0").isdigit())
+                return str(max_id + 1)
+            except (ValueError, TypeError):
+                # If there's an issue with ID parsing, use length + 1
+                return str(len(transactions) + 1)
+        # No transactions exist, start with 1
         return "1"
     else:
-        # Fallback for development
+        # Fallback for development without Firebase
         return str(len(_SEED_TRANSACTIONS) + 1)
 
 
 def get_transactions() -> List[Dict[str, Any]]:
-    """Return transactions from Firebase or seed data if Firebase unavailable."""
+    """Return transactions from Firebase or empty list for new users."""
     if firebase_store.firebase_available:
         transactions = firebase_store.get_transactions()
+        print(f"🔍 Debug: Retrieved {len(transactions) if transactions else 0} transactions from Firebase")
         return transactions if transactions else []
     else:
-        # Fallback to seed data for development
+        # Fallback to seed data for development only
+        print("🔍 Debug: Using fallback seed data")
+        return [transaction.copy() for transaction in _SEED_TRANSACTIONS]
         return [transaction.copy() for transaction in _SEED_TRANSACTIONS]
 
 
@@ -112,12 +120,14 @@ def add_transaction(
     
     # Save to Firebase
     if firebase_store.firebase_available:
-        firebase_store.save_transaction(transaction)
+        saved_transaction = firebase_store.save_transaction(transaction)
+        print(f"💾 Debug: Saved transaction to Firebase with ID {saved_transaction.get('id')}")
+        return saved_transaction
     else:
         # For development without Firebase, add to seed data
         _SEED_TRANSACTIONS.append(transaction)
-    
-    return transaction.copy()
+        print(f"💾 Debug: Added transaction to seed data")
+        return transaction.copy()
 
 
 def delete_transaction(transaction_id: str) -> bool:
@@ -159,12 +169,12 @@ def expense_breakdown() -> Dict[str, float]:
 
 
 def get_stocks() -> List[Dict[str, Any]]:
-    """Return stocks from Firebase or seed data if Firebase unavailable."""
+    """Return stocks from Firebase or empty list for new users."""
     if firebase_store.firebase_available:
         stocks = firebase_store.get_stocks()
         return stocks if stocks else []
     else:
-        # Fallback to seed data for development
+        # Fallback to seed data for development only
         return [stock.copy() for stock in _SEED_STOCKS]
 
 
@@ -294,31 +304,21 @@ def dashboard_overview() -> Dict[str, Any]:
     }
 
 
+# Removed seeding - users should start with empty data
+# _firebase_seeded = False
+
 def initialize_firebase_data():
-    """Initialize Firebase with seed data if it's empty."""
+    """Initialize Firebase connection - no seeding for production."""
     if not firebase_store.firebase_available:
-        print("Firebase not available, using seed data for development")
+        print("Firebase not available, using fallback for development")
         return
     
     try:
-        # Check if Firebase has any data
-        transactions = firebase_store.get_transactions()
-        stocks = firebase_store.get_stocks()
-        
-        # If no data exists, seed with initial data
-        if not transactions:
-            print("Seeding Firebase with initial transaction data")
-            for transaction in _SEED_TRANSACTIONS:
-                firebase_store.save_transaction(transaction)
-        
-        if not stocks:
-            print("Seeding Firebase with initial stock data")
-            for stock in _SEED_STOCKS:
-                firebase_store.save_stock(stock)
-                
+        # Just verify Firebase connection, don't seed any data
+        print("✅ Firebase connection verified - users will start with clean data")
     except Exception as e:
-        print(f"Failed to initialize Firebase data: {e}")
+        print(f"❌ Firebase connection error: {e}")
 
 
-# Initialize Firebase data on module import
+# Initialize Firebase connection on module import
 initialize_firebase_data()

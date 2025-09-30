@@ -36,31 +36,49 @@ class FirebaseDataStore:
     def save_transaction(self, transaction: Dict[str, Any]) -> Dict[str, Any]:
         """Save a transaction to Firebase."""
         if not self.firebase_available:
+            print("⚠️  Firebase not available, transaction not saved")
             return transaction
             
         try:
             ref = self._get_ref('transactions')
             if ref:
                 ref.child(transaction['id']).set(transaction)
-                print(f"Transaction {transaction['id']} saved to Firebase")
+                print(f"✅ Transaction {transaction['id']} saved to Firebase successfully")
+                
+                # Verify the save by reading it back
+                saved_data = ref.child(transaction['id']).get()
+                if saved_data:
+                    print(f"✅ Verified: Transaction {transaction['id']} exists in Firebase")
+                else:
+                    print(f"❌ Error: Transaction {transaction['id']} not found after save")
+            else:
+                print("❌ Error: Could not get Firebase reference for transactions")
         except Exception as e:
-            print(f"Failed to save transaction to Firebase: {e}")
+            print(f"❌ Failed to save transaction to Firebase: {e}")
         
         return transaction
     
     def get_transactions(self) -> List[Dict[str, Any]]:
         """Get all transactions from Firebase."""
         if not self.firebase_available:
+            print("⚠️  Firebase not available for get_transactions")
             return []
             
         try:
             ref = self._get_ref('transactions')
             if ref:
                 transactions_data = ref.get()
+                print(f"🔍 Raw Firebase data: {transactions_data}")
                 if transactions_data and isinstance(transactions_data, dict):
-                    return list(transactions_data.values())
+                    transactions_list = list(transactions_data.values())
+                    print(f"🔍 Parsed {len(transactions_list)} transactions from Firebase")
+                    return transactions_list
+                else:
+                    print("🔍 No transaction data found in Firebase")
+            else:
+                print("❌ Could not get Firebase reference for transactions")
         except Exception as e:
-            print(f"Failed to get transactions from Firebase: {e}")
+            print(f"❌ Failed to get transactions from Firebase: {e}")
         
         return []
     
