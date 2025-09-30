@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import {
   BarChartIcon,
   CreditCardIcon,
@@ -94,9 +95,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg overflow-hidden">
-                <img 
+                <Image 
                   src={currentLogo} 
                   alt="Cash Track Logo" 
+                  width={32}
+                  height={32}
                   className="w-full h-full object-contain"
                   onError={(e) => {
                     // Fallback to default icon if logo fails to load
