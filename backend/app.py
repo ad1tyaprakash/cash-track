@@ -4,17 +4,21 @@ from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
 
+# Load environment variables first
+load_dotenv()
+
+# Import routes after env variables are loaded
 from routes.dashboard import dashboard_bp
 from routes.posts import posts_bp
 from routes.users import users_bp
-
-# Load environment variables
-load_dotenv()
 
 
 def create_app() -> Flask:
     """Create and configure the Flask application."""
     app = Flask(__name__)
+    
+    # Configure Flask app
+    app.config['DEBUG'] = os.getenv('FLASK_ENV') == 'development'
     
     # Enable CORS for frontend integration - allow production domains
     cors_origins = [
@@ -40,20 +44,25 @@ def create_app() -> Flask:
     def health_check() -> dict[str, str]:
         """Simple health-check endpoint."""
         return {"status": "ok"}
+    
+    # Initialize Firebase connection on app startup
+    with app.app_context():
+        from services.firebase_db import get_firebase_store
+        firebase_store = get_firebase_store()
 
     return app
 
 
-# Create app instance for gunicorn
+# Create single app instance
 app = create_app()
 
 
 def run() -> None:
-    """Run the server."""
-    app = create_app()
+    """Run the server using the single app instance."""
     port = int(os.getenv('PORT', 5001))
     debug = os.getenv('FLASK_ENV') == 'development'
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    
+    app.run(host="0.0.0.0", port=port, debug=debug, use_reloader=False)
 
 
 if __name__ == "__main__":

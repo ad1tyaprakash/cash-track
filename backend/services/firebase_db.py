@@ -19,7 +19,6 @@ class FirebaseDataStore:
             app = initialize_app()
             return app is not None
         except Exception as e:
-            print(f"Firebase not available: {e}")
             return False
         
     def _get_ref(self, path: str):
@@ -29,56 +28,40 @@ class FirebaseDataStore:
         try:
             return db.reference(path)
         except Exception as e:
-            print(f"Firebase error accessing {path}: {e}")
             return None
     
     # Transaction methods
     def save_transaction(self, transaction: Dict[str, Any]) -> Dict[str, Any]:
         """Save a transaction to Firebase."""
         if not self.firebase_available:
-            print("⚠️  Firebase not available, transaction not saved")
             return transaction
             
         try:
             ref = self._get_ref('transactions')
             if ref:
                 ref.child(transaction['id']).set(transaction)
-                print(f"✅ Transaction {transaction['id']} saved to Firebase successfully")
-                
-                # Verify the save by reading it back
-                saved_data = ref.child(transaction['id']).get()
-                if saved_data:
-                    print(f"✅ Verified: Transaction {transaction['id']} exists in Firebase")
-                else:
-                    print(f"❌ Error: Transaction {transaction['id']} not found after save")
-            else:
-                print("❌ Error: Could not get Firebase reference for transactions")
         except Exception as e:
-            print(f"❌ Failed to save transaction to Firebase: {e}")
+            pass
         
         return transaction
     
     def get_transactions(self) -> List[Dict[str, Any]]:
         """Get all transactions from Firebase."""
         if not self.firebase_available:
-            print("⚠️  Firebase not available for get_transactions")
             return []
             
         try:
             ref = self._get_ref('transactions')
             if ref:
                 transactions_data = ref.get()
-                print(f"🔍 Raw Firebase data: {transactions_data}")
-                if transactions_data and isinstance(transactions_data, dict):
-                    transactions_list = list(transactions_data.values())
-                    print(f"🔍 Parsed {len(transactions_list)} transactions from Firebase")
-                    return transactions_list
-                else:
-                    print("🔍 No transaction data found in Firebase")
-            else:
-                print("❌ Could not get Firebase reference for transactions")
+                if transactions_data:
+                    if isinstance(transactions_data, dict):
+                        return list(transactions_data.values())
+                    elif isinstance(transactions_data, list):
+                        # Filter out None values from array indices
+                        return [t for t in transactions_data if t is not None]
         except Exception as e:
-            print(f"❌ Failed to get transactions from Firebase: {e}")
+            pass
         
         return []
     
@@ -91,10 +74,9 @@ class FirebaseDataStore:
             ref = self._get_ref(f'transactions/{transaction_id}')
             if ref:
                 ref.delete()
-                print(f"Transaction {transaction_id} deleted from Firebase")
                 return True
         except Exception as e:
-            print(f"Failed to delete transaction from Firebase: {e}")
+            pass
         
         return False
     
@@ -108,9 +90,8 @@ class FirebaseDataStore:
             ref = self._get_ref('stocks')
             if ref:
                 ref.child(stock['ticker']).set(stock)
-                print(f"Stock {stock['ticker']} saved to Firebase")
         except Exception as e:
-            print(f"Failed to save stock to Firebase: {e}")
+            pass
         
         return stock
     
@@ -126,7 +107,7 @@ class FirebaseDataStore:
                 if stocks_data and isinstance(stocks_data, dict):
                     return list(stocks_data.values())
         except Exception as e:
-            print(f"Failed to get stocks from Firebase: {e}")
+            pass
         
         return []
     
@@ -139,12 +120,21 @@ class FirebaseDataStore:
             ref = self._get_ref(f'stocks/{ticker}')
             if ref:
                 ref.delete()
-                print(f"Stock {ticker} deleted from Firebase")
                 return True
         except Exception as e:
-            print(f"Failed to delete stock from Firebase: {e}")
+            pass
         
         return False
 
-# Global instance
-firebase_store = FirebaseDataStore()
+# Global instance using singleton pattern
+_firebase_store_instance = None
+
+def get_firebase_store() -> FirebaseDataStore:
+    """Get the singleton Firebase store instance."""
+    global _firebase_store_instance
+    if _firebase_store_instance is None:
+        _firebase_store_instance = FirebaseDataStore()
+    return _firebase_store_instance
+
+# For backward compatibility
+firebase_store = get_firebase_store()

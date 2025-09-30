@@ -4,7 +4,10 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Tuple
-from services.firebase_db import firebase_store
+from services.firebase_db import get_firebase_store
+
+# Get Firebase store instance
+firebase_store = get_firebase_store()
 
 # Seed transaction data - only used if Firebase is not available
 _SEED_TRANSACTIONS: List[Dict[str, Any]] = [
@@ -90,12 +93,9 @@ def get_transactions() -> List[Dict[str, Any]]:
     """Return transactions from Firebase or empty list for new users."""
     if firebase_store.firebase_available:
         transactions = firebase_store.get_transactions()
-        print(f"🔍 Debug: Retrieved {len(transactions) if transactions else 0} transactions from Firebase")
         return transactions if transactions else []
     else:
         # Fallback to seed data for development only
-        print("🔍 Debug: Using fallback seed data")
-        return [transaction.copy() for transaction in _SEED_TRANSACTIONS]
         return [transaction.copy() for transaction in _SEED_TRANSACTIONS]
 
 
@@ -120,14 +120,11 @@ def add_transaction(
     
     # Save to Firebase
     if firebase_store.firebase_available:
-        saved_transaction = firebase_store.save_transaction(transaction)
-        print(f"💾 Debug: Saved transaction to Firebase with ID {saved_transaction.get('id')}")
-        return saved_transaction
+        return firebase_store.save_transaction(transaction)
     else:
         # For development without Firebase, add to seed data
         _SEED_TRANSACTIONS.append(transaction)
-        print(f"💾 Debug: Added transaction to seed data")
-        return transaction.copy()
+        return transaction
 
 
 def delete_transaction(transaction_id: str) -> bool:
@@ -310,14 +307,13 @@ def dashboard_overview() -> Dict[str, Any]:
 def initialize_firebase_data():
     """Initialize Firebase connection - no seeding for production."""
     if not firebase_store.firebase_available:
-        print("Firebase not available, using fallback for development")
         return
     
+    # Just verify Firebase connection, don't seed any data
     try:
-        # Just verify Firebase connection, don't seed any data
-        print("✅ Firebase connection verified - users will start with clean data")
-    except Exception as e:
-        print(f"❌ Firebase connection error: {e}")
+        firebase_store.get_transactions()
+    except Exception:
+        pass
 
 
 # Initialize Firebase connection on module import

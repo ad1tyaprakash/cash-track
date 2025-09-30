@@ -41,10 +41,9 @@ def initialize_app() -> firebase_admin.App | None:
             app = firebase_admin.initialize_app(cred, {
                 'databaseURL': database_url
             })
-            print(f"✅ Firebase initialized from environment variable with database: {database_url}")
             return app
         except (json.JSONDecodeError, Exception) as e:
-            print(f"❌ Error parsing Firebase service account from environment: {e}")
+            pass
     
     # Fallback to file-based approach for local development
     if SERVICE_ACCOUNT_PATH.exists():
@@ -54,9 +53,6 @@ def initialize_app() -> firebase_admin.App | None:
                 
             # Check if it's still placeholder values
             if config.get('project_id', '').startswith('TODO_'):
-                print("⚠️  Firebase service account file contains placeholders")
-                print("💡 For local development, set FIREBASE_SERVICE_ACCOUNT_JSON environment variable")
-                print("💡 Or replace firebase-service-account.json with real credentials")
                 return None
             
             # Get database URL from environment or construct from project ID
@@ -67,16 +63,10 @@ def initialize_app() -> firebase_admin.App | None:
             app = firebase_admin.initialize_app(cred, {
                 'databaseURL': database_url
             })
-            print(f"✅ Firebase initialized from service account file with database: {database_url}")
             return app
         except Exception as e:
-            print(f"❌ Error initializing Firebase from file: {e}")
+            pass
     
-    print("🔥 Firebase initialization failed - neither environment variable nor valid service account file found")
-    print("📝 To fix this:")
-    print("   1. Set FIREBASE_SERVICE_ACCOUNT_JSON environment variable with your service account JSON")
-    print("   2. Or replace firebase-service-account.json with real Firebase credentials") 
-    print("   3. Make sure FIREBASE_DATABASE_URL is set to your database URL")
     return None
 
 
