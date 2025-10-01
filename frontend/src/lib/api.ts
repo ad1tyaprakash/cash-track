@@ -21,6 +21,15 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   return headers;
 }
 
+// Authentication types
+export interface AuthResponse {
+  uid: string;
+  email: string;
+  displayName: string;
+  authMethod: string;
+  emailVerified?: boolean;
+}
+
 interface CreateTransactionPayload {
   title: string;
   content?: string;
@@ -263,6 +272,19 @@ export async function addInvestment(payload: CreateInvestmentPayload): Promise<I
     body: JSON.stringify(payload),
   });
   return handleResponse<Investment>(response);
+}
+
+// Authentication API functions
+export async function loginWithGoogle(token: string): Promise<AuthResponse> {
+  const response = await fetch(`${BASE_URL}/api/users/login`, {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token }),
+  });
+  return handleResponse<AuthResponse>(response);
 }
 
 export async function updateInvestment(investmentId: string, payload: Partial<CreateInvestmentPayload>): Promise<Investment> {

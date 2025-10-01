@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import firebase_admin
-from firebase_admin import auth, credentials, db
+from firebase_admin import auth, credentials, db, firestore
 
 SERVICE_ACCOUNT_PATH = Path(__file__).resolve().parent.parent / "firebase-service-account.json"
 
@@ -86,3 +86,11 @@ def get_firebase_db():
     if app is None:
         return None
     return db
+
+
+def get_firestore_client():
+    """Return the Firestore client, ensuring the app is initialised."""
+    app = initialize_app()
+    if app is None:
+        return None
+    return firestore.client()

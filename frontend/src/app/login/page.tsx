@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { auth } from "@/lib/firebase"
+import { loginWithGoogle } from "@/lib/api"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [displayName, setDisplayName] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -42,6 +44,14 @@ export default function LoginPage() {
         const result = await getRedirectResult(auth)
         if (result) {
           console.log('✅ Google redirect sign-in successful:', result.user.email)
+          // Sync to backend for unified user management
+          try {
+            const token = await result.user.getIdToken()
+            await loginWithGoogle(token)
+            console.log('✅ Backend sync successful')
+          } catch (err) {
+            console.log('Backend sync failed, but Firebase auth successful')
+          }
           router.replace("/dashboard")
         }
       } catch (err: any) {
@@ -52,7 +62,7 @@ export default function LoginPage() {
     checkRedirectResult()
   }, [])
 
-  const handleAuth = async (mode: "login" | "register") => {
+  const handleEmailAuth = async (mode: "login" | "register") => {
     setError(null)
 
     if (mode === "register" && password !== confirmPassword) {
@@ -60,30 +70,47 @@ export default function LoginPage() {
       return
     }
 
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters")
+      return
+    }
+
     try {
       setIsSubmitting(true)
+      
+      let userCredential
       if (mode === "login") {
-        await signInWithEmailAndPassword(auth, email, password)
+        userCredential = await signInWithEmailAndPassword(auth, email, password)
       } else {
-        await createUserWithEmailAndPassword(auth, email, password)
+        userCredential = await createUserWithEmailAndPassword(auth, email, password)
       }
+      
+      // Sync to backend for unified user management
+      try {
+        const token = await userCredential.user.getIdToken()
+        await loginWithGoogle(token) // Using same endpoint for both auth methods
+        console.log('✅ Backend sync successful')
+      } catch (err) {
+        console.log('Backend sync failed, but Firebase auth successful')
+      }
+      
+      console.log('✅ Firebase email auth successful:', userCredential.user.email)
       router.replace("/dashboard")
     } catch (err: any) {
-      console.error('❌ Email/Password auth error:', err)
+      console.error('❌ Firebase email auth error:', err)
       
-      // Handle account linking for existing Google users
-      if (err.code === 'auth/account-exists-with-different-credential') {
-        setError("An account with this email already exists. Please sign in with Google first, then you can add email/password login in your profile settings.")
-      } else if (err.code === 'auth/email-already-in-use' && mode === 'register') {
-        setError("An account with this email already exists. Please sign in instead, or use 'Forgot Password' if needed.")
+      if (err.code === 'auth/email-already-in-use') {
+        setError("An account with this email already exists. Please sign in instead.")
       } else if (err.code === 'auth/user-not-found') {
         setError("No account found with this email. Please register first.")
       } else if (err.code === 'auth/wrong-password') {
-        setError("Incorrect password. Please try again or use 'Forgot Password'.")
+        setError("Invalid email or password. Please try again.")
       } else if (err.code === 'auth/invalid-email') {
         setError("Please enter a valid email address.")
       } else if (err.code === 'auth/weak-password') {
-        setError("Password should be at least 6 characters long.")
+        setError("Password must be at least 6 characters long.")
+      } else if (err.code === 'auth/too-many-requests') {
+        setError("Too many failed attempts. Please try again later.")
       } else {
         setError(err.message || "Authentication failed")
       }
@@ -99,181 +126,267 @@ export default function LoginPage() {
     // Add additional scopes if needed
     provider.addScope('email')
     provider.addScope('profile')
-    
+
     try {
+      console.log('🔍 Attempting Google sign-in...')
       setIsSubmitting(true)
       
-      // Try popup first, fallback to redirect if blocked
-      try {
+      // Determine if we should use popup or redirect based on the environment
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      
+      if (isMobile) {
+        console.log('📱 Mobile detected, using redirect flow')
+        await signInWithRedirect(auth, provider)
+        // Note: redirect will happen, so this code won't execute
+      } else {
+        console.log('💻 Desktop detected, using popup flow')
         const result = await signInWithPopup(auth, provider)
         console.log('✅ Google popup sign-in successful:', result.user.email)
-        router.replace("/dashboard")
-      } catch (popupError: any) {
-        // Handle account exists with different credential
-        if (popupError.code === 'auth/account-exists-with-different-credential') {
-          const email = popupError.customData?.email
-          setError(`An account with email ${email} already exists with email/password login. Please sign in with your email and password first, then you can link your Google account in profile settings.`)
-          return
+        
+        // Sync to backend for unified user management
+        try {
+          const token = await result.user.getIdToken()
+          await loginWithGoogle(token)
+          console.log('✅ Backend sync successful')
+        } catch (err) {
+          console.log('Backend sync failed, but Firebase auth successful')
         }
         
-        // If popup is blocked, use redirect method
-        if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/cancelled-popup-request') {
-          console.log('🔄 Popup blocked, using redirect method...')
-          await signInWithRedirect(auth, provider)
-          // signInWithRedirect doesn't return immediately, it redirects the page
-          return
-        } else {
-          throw popupError
-        }
+        router.replace("/dashboard")
       }
     } catch (err: any) {
       console.error('❌ Google sign-in error:', err)
       
-      let errorMessage = "Google sign-in failed"
-      
-      // Handle specific Firebase Auth errors
-      switch (err.code) {
-        case 'auth/account-exists-with-different-credential':
-          const email = err.customData?.email || 'this email'
-          errorMessage = `An account with ${email} already exists with email/password login. Please sign in with your email and password first.`
-          break
-        case 'auth/popup-closed-by-user':
-          errorMessage = "Sign-in was cancelled. Please try again."
-          break
-        case 'auth/popup-blocked':
-          errorMessage = "Pop-up was blocked. Redirecting to Google sign-in..."
-          // Fallback to redirect
-          try {
-            await signInWithRedirect(auth, provider)
-            return
-          } catch (redirectErr) {
-            errorMessage = "Unable to sign in with Google. Please try again."
-          }
-          break
-        case 'auth/cancelled-popup-request':
-          errorMessage = "Sign-in was cancelled. Please try again."
-          break
-        case 'auth/configuration-not-found':
-          errorMessage = "Google sign-in is not properly configured. Please contact support."
-          break
-        case 'auth/unauthorized-domain':
-          errorMessage = "This domain is not authorized for Google sign-in. Please contact support."
-          break
-        case 'auth/operation-not-allowed':
-          errorMessage = "Google sign-in is not enabled. Please contact support."
-          break
-        default:
-          errorMessage = `Google sign-in failed: ${err.message || 'Unknown error'}`
+      if (err.code === 'auth/popup-closed-by-user') {
+        setError("Sign-in was cancelled. Please try again.")
+      } else if (err.code === 'auth/popup-blocked') {
+        setError("Pop-up was blocked by your browser. Please allow pop-ups and try again, or try refreshing the page.")
+      } else if (err.code === 'auth/network-request-failed') {
+        setError("Network error. Please check your internet connection and try again.")
+      } else if (err.code === 'auth/too-many-requests') {
+        setError("Too many attempts. Please wait a moment and try again.")
+      } else {
+        setError(err.message || "Google sign-in failed")
       }
-      
-      setError(errorMessage)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <header className="border-b">
-        <div className="container flex items-center justify-between px-4 py-4 lg:px-8">
-          <Link href="/" className="text-lg font-semibold">
-            Cash Track
-          </Link>
-          <Button variant="ghost" asChild>
-            <Link href="/">Back to home</Link>
-          </Button>
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p>Already signed in. Redirecting...</p>
         </div>
-      </header>
+      </div>
+    )
+  }
 
-      <main className="flex flex-1 items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-2 text-center">
-            <CardTitle className="text-2xl font-semibold">Access your dashboard</CardTitle>
-            <CardDescription>Sign in to continue tracking your cash flow.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isSubmitting}>
-              {isSubmitting ? "Signing in..." : "Continue with Google"}
-            </Button>
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl">Welcome to CashTrack</CardTitle>
+          <CardDescription>
+            Choose your preferred sign-in method
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login">Sign In</TabsTrigger>
+              <TabsTrigger value="register">Register</TabsTrigger>
+            </TabsList>
 
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Log in</TabsTrigger>
-                <TabsTrigger value="register">Register</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="login" className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="you@example.com"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="••••••••"
-                    required
-                  />
-                </div>
-                {error && <p className="text-sm text-destructive">{error}</p>}
-                <Button className="w-full" onClick={() => handleAuth("login")} disabled={isSubmitting}>
-                  {isSubmitting ? "Signing in..." : "Sign in"}
+            <TabsContent value="login" className="space-y-4">
+              <div className="space-y-4">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleGoogleSignIn}
+                  disabled={isSubmitting}
+                >
+                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
+                  Continue with Google
                 </Button>
-              </TabsContent>
 
-              <TabsContent value="register" className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
-                  <Input
-                    id="register-email"
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="you@example.com"
-                    required
-                  />
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      Or continue with email
+                    </span>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Password</Label>
-                  <Input
-                    id="register-password"
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="••••••••"
-                    required
-                  />
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isSubmitting}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-confirm-password">Confirm password</Label>
-                  <Input
-                    id="register-confirm-password"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    placeholder="••••••••"
-                    required
-                  />
-                </div>
-                {error && <p className="text-sm text-destructive">{error}</p>}
-                <Button className="w-full" onClick={() => handleAuth("register")} disabled={isSubmitting}>
-                  {isSubmitting ? "Creating account..." : "Create account"}
+
+                {error && (
+                  <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
+                    {error}
+                  </div>
+                )}
+
+                <Button className="w-full" onClick={() => handleEmailAuth("login")} disabled={isSubmitting}>
+                  {isSubmitting ? "Signing in..." : "Sign In"}
                 </Button>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      </main>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="register" className="space-y-4">
+              <div className="space-y-4">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleGoogleSignIn}
+                  disabled={isSubmitting}
+                >
+                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
+                  Continue with Google
+                </Button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      Or register with email
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="displayName">Display Name (Optional)</Label>
+                    <Input
+                      id="displayName"
+                      type="text"
+                      placeholder="Enter your display name"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="registerEmail">Email</Label>
+                    <Input
+                      id="registerEmail"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="registerPassword">Password</Label>
+                    <Input
+                      id="registerPassword"
+                      type="password"
+                      placeholder="Create a password (min 6 characters)"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      placeholder="Confirm your password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
+                    {error}
+                  </div>
+                )}
+
+                <Button className="w-full" onClick={() => handleEmailAuth("register")} disabled={isSubmitting}>
+                  {isSubmitting ? "Creating account..." : "Create Account"}
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div className="mt-6 text-center text-sm">
+            <span className="text-muted-foreground">
+              New to CashTrack?{" "}
+              <Link href="/register" className="text-primary hover:underline">
+                Create an account
+              </Link>
+            </span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
