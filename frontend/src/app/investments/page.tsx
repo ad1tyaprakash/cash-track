@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { ProtectedRoute } from "@/components/protected-route"
 import { getDashboardOverview, type DashboardOverview } from "@/lib/api"
 import { StockManager } from "@/components/StockManager"
 import { InvestmentManager } from "@/components/InvestmentManager"
@@ -145,28 +146,30 @@ export default function InvestmentsPage() {
   }, [])
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
-        <AppSidebar />
-        <SidebarInset>
-          <SiteHeader />
-          {isLoading ? (
-            <div className="flex flex-1 items-center justify-center px-4 pb-10">
-              <div className="w-full max-w-md rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-                Loading investment data...
+    <ProtectedRoute requirePassword={true}>
+      <SidebarProvider>
+        <div className="flex min-h-screen w-full bg-background">
+          <AppSidebar />
+          <SidebarInset>
+            <SiteHeader />
+            {isLoading ? (
+              <div className="flex flex-1 items-center justify-center px-4 pb-10">
+                <div className="w-full max-w-md rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  Loading investment data...
+                </div>
               </div>
-            </div>
-          ) : overview ? (
-            <InvestmentsContent overview={overview} />
-          ) : (
-            <div className="flex flex-1 items-center justify-center px-4 pb-10">
-              <div className="w-full max-w-md rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-                We couldn&apos;t load your investment data right now. Please try refreshing the page.
+            ) : overview ? (
+              <InvestmentsContent overview={overview} />
+            ) : (
+              <div className="flex flex-1 items-center justify-center px-4 pb-10">
+                <div className="w-full max-w-md rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  We couldn&apos;t load your investment data right now. Please try refreshing the page.
+                </div>
               </div>
-            </div>
-          )}
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+            )}
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
+    </ProtectedRoute>
   )
 }

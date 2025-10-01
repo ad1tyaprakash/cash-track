@@ -31,6 +31,10 @@ def login():
         db = get_firestore_client()
         if db is not None:
             try:
+                # Check if user has password provider (completed profile)
+                firebase_providers = decoded.get("firebase", {}).get("sign_in_provider", "")
+                has_password_auth = "password" in str(firebase_providers) or decoded.get("firebase", {}).get("identities", {}).get("password")
+                
                 user_data = {
                     'uid': decoded["uid"],
                     'email': decoded.get("email", ""),
@@ -38,7 +42,9 @@ def login():
                     'authMethod': 'firebase_auth',  # Both Google and email/password use Firebase Auth
                     'lastLogin': datetime.utcnow().isoformat(),
                     'emailVerified': decoded.get("email_verified", False),
-                    'authTime': datetime.utcfromtimestamp(decoded.get("auth_time", 0)).isoformat()
+                    'authTime': datetime.utcfromtimestamp(decoded.get("auth_time", 0)).isoformat(),
+                    'hasPasswordAuth': bool(has_password_auth),
+                    'profileCompleted': bool(has_password_auth)  # Profile is complete when user has password auth
                 }
                 
                 users_ref = db.collection('users')

@@ -44,6 +44,12 @@ export default function LoginPage() {
         const result = await getRedirectResult(auth)
         if (result) {
           console.log('✅ Google redirect sign-in successful:', result.user.email)
+          
+          // Check if user needs to set a password
+          const hasPasswordProvider = result.user.providerData.some(
+            provider => provider.providerId === 'password'
+          )
+          
           // Sync to backend for unified user management
           try {
             const token = await result.user.getIdToken()
@@ -52,7 +58,13 @@ export default function LoginPage() {
           } catch (err) {
             console.log('Backend sync failed, but Firebase auth successful')
           }
-          router.replace("/dashboard")
+          
+          if (hasPasswordProvider) {
+            router.replace("/dashboard")
+          } else {
+            // Force password creation for Google-only users
+            router.replace("/complete-profile")
+          }
         }
       } catch (err: any) {
         console.error('❌ Redirect result error:', err)
@@ -143,6 +155,11 @@ export default function LoginPage() {
         const result = await signInWithPopup(auth, provider)
         console.log('✅ Google popup sign-in successful:', result.user.email)
         
+        // Check if user needs to set a password
+        const hasPasswordProvider = result.user.providerData.some(
+          provider => provider.providerId === 'password'
+        )
+        
         // Sync to backend for unified user management
         try {
           const token = await result.user.getIdToken()
@@ -152,7 +169,12 @@ export default function LoginPage() {
           console.log('Backend sync failed, but Firebase auth successful')
         }
         
-        router.replace("/dashboard")
+        if (hasPasswordProvider) {
+          router.replace("/dashboard")
+        } else {
+          // Force password creation for Google-only users
+          router.replace("/complete-profile")
+        }
       }
     } catch (err: any) {
       console.error('❌ Google sign-in error:', err)
