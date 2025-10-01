@@ -23,8 +23,8 @@ interface Investment {
   purchase_date: string
   last_updated: string
   quantity?: number
-  location?: string // for property
-  custom_type?: string // for 'other' category
+  location?: string 
+  custom_type?: string 
 }
 
 interface InvestmentManagerProps {
