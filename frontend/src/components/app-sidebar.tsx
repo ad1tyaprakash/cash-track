@@ -94,12 +94,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg overflow-hidden">
+              <div className="flex aspect-square size-12 items-center justify-center rounded-lg overflow-hidden">
                 <Image 
                   src={currentLogo} 
                   alt="Cash Track Logo" 
-                  width={32}
-                  height={32}
+                  width={48}
+                  height={48}
                   className="w-full h-full object-contain"
                   onError={(e) => {
                     // Fallback to default icon if logo fails to load
@@ -107,8 +107,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     e.currentTarget.nextElementSibling?.classList.remove('hidden')
                   }}
                 />
-                <div className="hidden flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <DollarSignIcon className="size-4" />
+                <div className="hidden flex aspect-square size-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <DollarSignIcon className="size-6" />
                 </div>
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
