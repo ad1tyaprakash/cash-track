@@ -22,6 +22,12 @@ export function AuthProvider({
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
+    if (!auth) {
+      console.warn("Firebase auth isn't initialized; skipping auth state listener")
+      setLoading(false)
+      setUser(null)
+      return
+    }
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: User | null) => {
       setUser(firebaseUser)
       setLoading(false)
@@ -31,6 +37,10 @@ export function AuthProvider({
   }, [])
 
   const signOut = React.useCallback(async () => {
+    if (!auth) {
+      console.warn("Firebase auth isn't initialized; nothing to sign out from")
+      return
+    }
     try {
       await firebaseSignOut(auth)
     } catch (error) {

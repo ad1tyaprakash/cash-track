@@ -1,7 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
 import {
@@ -22,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { auth } from "@/lib/firebase"
 import { loginWithGoogle } from "@/lib/api"
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter()
   const { user } = useAuth()
   const [email, setEmail] = useState("")
@@ -34,6 +33,11 @@ export default function LoginPage() {
   // control which tab is active: 'login' or 'register'
   const [tab, setTab] = useState<"login" | "register">("login")
   const searchParams = useSearchParams()
+  const handleTabChange = (value: string) => {
+    if (value === "login" || value === "register") {
+      setTab(value)
+    }
+  }
 
   // Support deep-linking: ?tab=register will open the register tab
   useEffect(() => {
@@ -50,6 +54,10 @@ export default function LoginPage() {
   // Check for redirect result on component mount
   useEffect(() => {
     const checkRedirectResult = async () => {
+      if (!auth) {
+        console.warn("Firebase auth isn't initialized; skipping redirect result check")
+        return
+      }
       try {
         const result = await getRedirectResult(auth)
         if (result) {
@@ -82,10 +90,15 @@ export default function LoginPage() {
       }
     }
     checkRedirectResult()
-  }, [])
+  }, [router])
 
   const handleEmailAuth = async (mode: "login" | "register") => {
     setError(null)
+
+    if (!auth) {
+      setError("Authentication is currently unavailable. Please refresh or check Firebase configuration.")
+      return
+    }
 
     if (mode === "register" && password !== confirmPassword) {
       setError("Passwords do not match")
@@ -143,6 +156,10 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setError(null)
+    if (!auth) {
+      setError("Authentication is currently unavailable. Please refresh or check Firebase configuration.")
+      return
+    }
     const provider = new GoogleAuthProvider()
     
     // Add additional scopes if needed
@@ -226,7 +243,7 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={tab} onValueChange={(v) => setTab(v)} className="w-full">
+          <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Sign In</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
@@ -425,5 +442,19 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <p className="text-muted-foreground">Loading sign-in...</p>
+        </div>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
   )
 }

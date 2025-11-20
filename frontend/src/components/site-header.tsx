@@ -16,6 +16,10 @@ export function SiteHeader() {
   const handleSignOut = async () => {
     try {
       setIsSigningOut(true)
+      if (!auth) {
+        console.warn("Firebase auth isn't initialized; cannot sign out")
+        return
+      }
       await signOut(auth)
     } finally {
       setIsSigningOut(false)
