@@ -49,7 +49,8 @@ export default function CompleteProfilePage() {
       return
     }
 
-    if (!auth.currentUser) {
+    // auth may be null during SSR or if Firebase isn't initialized; guard access
+    if (!auth || !auth.currentUser) {
       setError("Authentication error. Please sign in again.")
       return
     }
