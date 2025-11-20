@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
 import {
   GoogleAuthProvider,
@@ -30,6 +31,15 @@ export default function LoginPage() {
   const [displayName, setDisplayName] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // control which tab is active: 'login' or 'register'
+  const [tab, setTab] = useState<"login" | "register">("login")
+  const searchParams = useSearchParams()
+
+  // Support deep-linking: ?tab=register will open the register tab
+  useEffect(() => {
+    const t = searchParams?.get?.("tab")
+    if (t === "register") setTab("register")
+  }, [searchParams])
 
   useEffect(() => {
     if (user) {
@@ -216,7 +226,7 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs value={tab} onValueChange={(v) => setTab(v)} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Sign In</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
@@ -402,9 +412,14 @@ export default function LoginPage() {
           <div className="mt-6 text-center text-sm">
             <span className="text-muted-foreground">
               New to CashTrack?{" "}
-              <Link href="/register" className="text-primary hover:underline">
+              <button
+                type="button"
+                className="text-primary hover:underline"
+                onClick={() => setTab("register")}
+                aria-label="Switch to register"
+              >
                 Create an account
-              </Link>
+              </button>
             </span>
           </div>
         </CardContent>

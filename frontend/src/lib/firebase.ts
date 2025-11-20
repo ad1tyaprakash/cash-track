@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app"
 import { getAuth } from "firebase/auth"
+import type { Auth } from "firebase/auth"
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,11 +13,26 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 }
 
-// Validate configuration
-if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
-  console.error('❌ Firebase configuration is incomplete. Please check your environment variables.')
+// Validate configuration (client-side only)
+if (typeof window !== "undefined") {
+  if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
+    console.error('❌ Firebase configuration is incomplete. Please copy frontend/.env.local.example to frontend/.env.local and fill the NEXT_PUBLIC_FIREBASE_* values from the Firebase console.')
+  }
 }
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
+let authInstance: Auth | null = null
 
-export const auth = getAuth(app)
+// Only initialize Firebase in the browser. Avoids SSR/server-side initialization which
+// can cause runtime errors (and prevents exposing client SDK behavior on the server).
+if (typeof window !== "undefined") {
+  // Only attempt initialization when the minimal required config is present
+  if (firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId) {
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
+    authInstance = getAuth(app)
+  } else {
+    // Keep authInstance null; components should handle unauthenticated state gracefully.
+    authInstance = null
+  }
+}
+
+export const auth = authInstance
