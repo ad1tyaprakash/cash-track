@@ -9,6 +9,10 @@ instance/
 .env
 .env.local
 backend/venv/
+backend/.venv/
+
+# TypeScript build info
+*.tsbuildinfo
 
 # Firebase credentials (contains sensitive keys)
 backend/firebase-service-account.json
