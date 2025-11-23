@@ -61,6 +61,20 @@ export interface Investment {
   custom_type?: string;
 }
 
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  deadline: string;
+  category: string;
+  priority: string;
+  created_at: string;
+  updated_at: string;
+  progress?: number;
+  remaining_amount?: number;
+}
+
 export interface StockOption {
   symbol: string;
   name: string;
@@ -82,6 +96,7 @@ export interface DashboardOverview {
   };
   stock_data: StockEntry[];
   investment_data: Investment[];
+  savings_goals: SavingsGoal[];
   available_stocks: StockOption[];
 }
 
@@ -255,6 +270,15 @@ export interface CreateInvestmentPayload {
   custom_type?: string;
 }
 
+export interface CreateSavingsGoalPayload {
+  name: string;
+  target_amount: number;
+  deadline: string;
+  category?: string;
+  priority?: string;
+  current_amount?: number;
+}
+
 export async function getInvestments(): Promise<Investment[]> {
   const headers = await getAuthHeaders();
   const response = await fetch(`${BASE_URL}/api/dashboard/investments`, {
@@ -272,6 +296,44 @@ export async function addInvestment(payload: CreateInvestmentPayload): Promise<I
     body: JSON.stringify(payload),
   });
   return handleResponse<Investment>(response);
+}
+
+export async function getSavingsGoals(): Promise<SavingsGoal[]> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/api/savings`, {
+    headers,
+    cache: "no-store",
+  });
+  return handleResponse<SavingsGoal[]>(response);
+}
+
+export async function createSavingsGoal(payload: CreateSavingsGoalPayload): Promise<SavingsGoal> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/api/savings`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<SavingsGoal>(response);
+}
+
+export async function updateSavingsGoal(goalId: string, payload: Partial<CreateSavingsGoalPayload>): Promise<SavingsGoal> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/api/savings/${goalId}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<SavingsGoal>(response);
+}
+
+export async function deleteSavingsGoal(goalId: string): Promise<void> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/api/savings/${goalId}`, {
+    method: "DELETE",
+    headers,
+  });
+  await handleResponse<{ message: string }>(response);
 }
 
 // Authentication API functions

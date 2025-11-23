@@ -12,6 +12,7 @@ from routes.dashboard import dashboard_bp
 from routes.posts import posts_bp
 from routes.users import users_bp
 from routes.auth import auth_bp
+from routes.savings import savings_bp
 
 
 def create_app() -> Flask:
@@ -41,6 +42,7 @@ def create_app() -> Flask:
     app.register_blueprint(posts_bp, url_prefix="/api/posts")
     app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
     app.register_blueprint(users_bp, url_prefix="/api/users")
+    app.register_blueprint(savings_bp, url_prefix="/api/savings")
 
     @app.get("/health")
     def health_check() -> dict[str, str]:

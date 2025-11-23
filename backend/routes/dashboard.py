@@ -16,6 +16,7 @@ from services.data_store import (
     delete_transaction,
     delete_investment,
     enrich_stock,
+    get_savings_goals,
     get_transactions,
     get_investments,
     update_investment,
@@ -164,6 +165,13 @@ def delete_stock_endpoint(ticker):
 def get_investments_endpoint():
     """Get all investments for authenticated user."""
     return jsonify(get_investments())
+
+
+@dashboard_bp.get("/savings")
+@require_auth
+def get_savings_endpoint():
+    """Get all savings goals for authenticated user."""
+    return jsonify(get_savings_goals())
 
 
 @dashboard_bp.post("/investment")

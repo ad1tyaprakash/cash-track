@@ -174,6 +174,46 @@ class FirebaseDataStore:
         
         return False
 
+    # Savings goal methods
+    def save_savings_goal(self, user_id: str, goal: Dict[str, Any]) -> Dict[str, Any]:
+        """Persist a savings goal for a specific user."""
+        if not self.firebase_available or not user_id:
+            return goal
+        try:
+            ref = self._get_user_ref(user_id, 'savings_goals')
+            if ref:
+                ref.child(goal['id']).set(goal)
+        except Exception:
+            pass
+        return goal
+
+    def get_savings_goals(self, user_id: str) -> List[Dict[str, Any]]:
+        """Fetch all savings goals for a specific user."""
+        if not self.firebase_available or not user_id:
+            return []
+        try:
+            ref = self._get_user_ref(user_id, 'savings_goals')
+            if ref:
+                goals_data = ref.get()
+                if goals_data and isinstance(goals_data, dict):
+                    return list(goals_data.values())
+        except Exception:
+            pass
+        return []
+
+    def delete_savings_goal(self, user_id: str, goal_id: str) -> bool:
+        """Remove a savings goal for a specific user."""
+        if not self.firebase_available or not user_id:
+            return False
+        try:
+            ref = self._get_user_ref(user_id, f'savings_goals/{goal_id}')
+            if ref:
+                ref.delete()
+                return True
+        except Exception:
+            pass
+        return False
+
 # Global instance using singleton pattern
 _firebase_store_instance = None
 

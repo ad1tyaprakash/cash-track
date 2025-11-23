@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { getDashboardOverview, type DashboardOverview } from "@/lib/api"
+import { getDashboardOverview, getSavingsGoals, createSavingsGoal, updateSavingsGoal, deleteSavingsGoal, type DashboardOverview, type SavingsGoal, type CreateSavingsGoalPayload } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,45 +13,10 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { PlusCircle, Target, Calendar, TrendingUp, Coins } from "lucide-react"
 
-function SavingsContent({ overview }: { overview: DashboardOverview }) {
-  const [savingsGoals, setSavingsGoals] = useState([
-    { 
-      id: 1, 
-      name: 'Emergency Fund', 
-      target: 10000, 
-      current: 7500, 
-      deadline: '2025-12-31',
-      category: 'Emergency',
-      priority: 'high'
-    },
-    { 
-      id: 2, 
-      name: 'Vacation to Japan', 
-      target: 5000, 
-      current: 2800, 
-      deadline: '2026-06-15',
-      category: 'Travel',
-      priority: 'medium'
-    },
-    { 
-      id: 3, 
-      name: 'New Car Down Payment', 
-      target: 8000, 
-      current: 1200, 
-      deadline: '2026-03-01',
-      category: 'Transportation',
-      priority: 'medium'
-    },
-    { 
-      id: 4, 
-      name: 'Home Renovation', 
-      target: 15000, 
-      current: 4500, 
-      deadline: '2026-08-30',
-      category: 'Home',
-      priority: 'low'
-    },
-  ])
+function SavingsContent({ overview, initialGoals }: { overview: DashboardOverview, initialGoals: SavingsGoal[] }) {
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(initialGoals)
+  const [loadingGoals, setLoadingGoals] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const [newGoal, setNewGoal] = useState({ 
     name: '', 
@@ -60,8 +25,26 @@ function SavingsContent({ overview }: { overview: DashboardOverview }) {
     category: 'Other'
   })
 
-  const totalSavingsTarget = savingsGoals.reduce((sum, goal) => sum + goal.target, 0)
-  const totalSavedAmount = savingsGoals.reduce((sum, goal) => sum + goal.current, 0)
+  useEffect(() => {
+    setSavingsGoals(initialGoals)
+  }, [initialGoals])
+
+  const refreshGoals = async () => {
+    try {
+      setLoadingGoals(true)
+      setError(null)
+      const goals = await getSavingsGoals()
+      setSavingsGoals(goals)
+    } catch (err) {
+      console.error('Failed to fetch savings goals', err)
+      setError('Unable to load savings goals right now.')
+    } finally {
+      setLoadingGoals(false)
+    }
+  }
+
+  const totalSavingsTarget = savingsGoals.reduce((sum, goal) => sum + goal.target_amount, 0)
+  const totalSavedAmount = savingsGoals.reduce((sum, goal) => sum + goal.current_amount, 0)
   const averageProgress = (totalSavedAmount / totalSavingsTarget) * 100
 
   const getPriorityColor = (priority: string) => {
@@ -85,19 +68,32 @@ function SavingsContent({ overview }: { overview: DashboardOverview }) {
     }
   }
 
-  const addSavingsGoal = () => {
-    if (newGoal.name && newGoal.target && newGoal.deadline) {
-      const goal = {
-        id: savingsGoals.length + 1,
-        name: newGoal.name,
-        target: parseFloat(newGoal.target),
-        current: 0,
-        deadline: newGoal.deadline,
-        category: newGoal.category,
-        priority: 'medium' as const
-      }
-      setSavingsGoals([...savingsGoals, goal])
+  const addSavingsGoal = async () => {
+    if (!newGoal.name || !newGoal.target || !newGoal.deadline) {
+      setError('Please fill in all fields before creating a goal.')
+      return
+    }
+
+    const payload: CreateSavingsGoalPayload = {
+      name: newGoal.name,
+      target_amount: parseFloat(newGoal.target),
+      deadline: newGoal.deadline,
+      category: newGoal.category,
+    }
+
+    if (Number.isNaN(payload.target_amount) || payload.target_amount <= 0) {
+      setError('Target amount must be greater than 0.')
+      return
+    }
+
+    try {
+      setError(null)
+      await createSavingsGoal(payload)
+      await refreshGoals()
       setNewGoal({ name: '', target: '', deadline: '', category: 'Other' })
+    } catch (err) {
+      console.error('Failed to create savings goal', err)
+      setError('Failed to create savings goal. Please try again.')
     }
   }
 
@@ -180,7 +176,7 @@ function SavingsContent({ overview }: { overview: DashboardOverview }) {
       {/* Savings Goals Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
         {savingsGoals.map((goal) => {
-          const progress = (goal.current / goal.target) * 100
+          const progress = (goal.current_amount / goal.target_amount) * 100
           const timeRemaining = getTimeRemaining(goal.deadline)
           
           return (
@@ -202,13 +198,13 @@ function SavingsContent({ overview }: { overview: DashboardOverview }) {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>${goal.current.toFixed(2)} saved</span>
-                    <span>${goal.target.toFixed(2)} target</span>
+                    <span>${goal.current_amount.toFixed(2)} saved</span>
+                    <span>${goal.target_amount.toFixed(2)} target</span>
                   </div>
                   <Progress value={Math.min(progress, 100)} className="h-3" />
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>{progress.toFixed(1)}% complete</span>
-                    <span>${(goal.target - goal.current).toFixed(2)} remaining</span>
+                    <span>${(goal.target_amount - goal.current_amount).toFixed(2)} remaining</span>
                   </div>
                 </div>
                 
@@ -223,11 +219,11 @@ function SavingsContent({ overview }: { overview: DashboardOverview }) {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1">
-                    Add Money
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => updateSavingsGoal(goal.id, { current_amount: goal.current_amount + 100 })}>
+                    +$100
                   </Button>
-                  <Button size="sm" variant="outline" className="flex-1">
-                    Edit Goal
+                  <Button size="sm" variant="destructive" className="flex-1" onClick={() => deleteSavingsGoal(goal.id).then(refreshGoals)}>
+                    Delete
                   </Button>
                 </div>
               </CardContent>
@@ -295,10 +291,11 @@ function SavingsContent({ overview }: { overview: DashboardOverview }) {
               </select>
             </div>
 
-            <Button onClick={addSavingsGoal} className="w-full">
+            <Button onClick={addSavingsGoal} className="w-full" disabled={loadingGoals}>
               <PlusCircle className="mr-2 h-4 w-4" />
-              Create Goal
+              {loadingGoals ? 'Saving...' : 'Create Goal'}
             </Button>
+            {error && <p className="text-sm text-red-600">{error}</p>}
           </CardContent>
         </Card>
 
@@ -406,7 +403,7 @@ export default function SavingsPage() {
               </div>
             </div>
           ) : overview ? (
-            <SavingsContent overview={overview} />
+            <SavingsContent overview={overview} initialGoals={overview.savings_goals} />
           ) : (
             <div className="flex flex-1 items-center justify-center px-4 pb-10">
               <div className="w-full max-w-md rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">

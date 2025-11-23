@@ -95,6 +95,129 @@ _SEED_INVESTMENTS: List[Dict[str, Any]] = [
     }
 ]
 
+_SEED_SAVINGS_GOALS: List[Dict[str, Any]] = [
+    {
+        "id": "goal1",
+        "name": "Emergency Fund",
+        "target_amount": 10000.0,
+        "current_amount": 4500.0,
+        "deadline": "2025-12-31T00:00:00Z",
+        "category": "Emergency",
+        "priority": "high",
+        "created_at": "2025-01-01T00:00:00Z",
+        "updated_at": "2025-09-25T00:00:00Z",
+    },
+    {
+        "id": "goal2",
+        "name": "Summer Vacation",
+        "target_amount": 5000.0,
+        "current_amount": 2200.0,
+        "deadline": "2025-07-01T00:00:00Z",
+        "category": "Travel",
+        "priority": "medium",
+        "created_at": "2025-02-01T00:00:00Z",
+        "updated_at": "2025-09-20T00:00:00Z",
+    },
+]
+
+
+def _next_savings_goal_id() -> str:
+    """Generate the next savings goal ID for current user."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return f"goal{len(_SEED_SAVINGS_GOALS) + 1}"
+
+    if firebase_store.firebase_available:
+        goals = firebase_store.get_savings_goals(user_id)
+        if goals:
+            try:
+                max_id = max(
+                    int(goal.get("id", "goal0")[4:])
+                    for goal in goals
+                    if isinstance(goal.get("id"), str) and goal.get("id").startswith("goal")
+                )
+                return f"goal{max_id + 1}"
+            except (ValueError, TypeError):
+                return f"goal{len(goals) + 1}"
+        return "goal1"
+    return f"goal{len(_SEED_SAVINGS_GOALS) + 1}"
+
+
+def get_savings_goals() -> List[Dict[str, Any]]:
+    """Return savings goals for the current user."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return []
+
+    if firebase_store.firebase_available:
+        goals = firebase_store.get_savings_goals(user_id)
+        return goals if goals else []
+    return [goal.copy() for goal in _SEED_SAVINGS_GOALS]
+
+
+def add_savings_goal(goal: Dict[str, Any]) -> Dict[str, Any]:
+    """Create a savings goal for current user."""
+    user_id = get_current_user_id()
+    if not user_id:
+        raise ValueError("User must be authenticated to create savings goals")
+
+    saved_goal = {
+        "id": _next_savings_goal_id(),
+        "name": goal["name"],
+        "target_amount": float(goal["target_amount"]),
+        "current_amount": float(goal.get("current_amount", 0.0)),
+        "deadline": goal["deadline"],
+        "category": goal.get("category", "Other"),
+        "priority": goal.get("priority", "medium"),
+        "created_at": datetime.utcnow().isoformat() + "Z",
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+    }
+
+    if firebase_store.firebase_available:
+        firebase_store.save_savings_goal(user_id, saved_goal)
+    else:
+        _SEED_SAVINGS_GOALS.append(saved_goal)
+    return saved_goal
+
+
+def update_savings_goal(goal_id: str, updates: Dict[str, Any]) -> Dict[str, Any] | None:
+    """Update an existing savings goal."""
+    user_id = get_current_user_id()
+    if not user_id:
+        raise ValueError("User must be authenticated to update savings goals")
+
+    if firebase_store.firebase_available:
+        goals = firebase_store.get_savings_goals(user_id)
+        goal = next((g for g in goals if g.get("id") == goal_id), None)
+        if not goal:
+            return None
+        goal.update(updates)
+        goal["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        firebase_store.save_savings_goal(user_id, goal)
+        return goal
+    else:
+        for idx, goal in enumerate(_SEED_SAVINGS_GOALS):
+            if goal["id"] == goal_id:
+                _SEED_SAVINGS_GOALS[idx].update(updates)
+                _SEED_SAVINGS_GOALS[idx]["updated_at"] = datetime.utcnow().isoformat() + "Z"
+                return _SEED_SAVINGS_GOALS[idx]
+    return None
+
+
+def delete_savings_goal(goal_id: str) -> bool:
+    """Delete a savings goal for current user."""
+    user_id = get_current_user_id()
+    if not user_id:
+        return False
+
+    if firebase_store.firebase_available:
+        return firebase_store.delete_savings_goal(user_id, goal_id)
+    else:
+        global _SEED_SAVINGS_GOALS
+        before = len(_SEED_SAVINGS_GOALS)
+        _SEED_SAVINGS_GOALS = [goal for goal in _SEED_SAVINGS_GOALS if goal["id"] != goal_id]
+        return len(_SEED_SAVINGS_GOALS) < before
+
 
 def _next_transaction_id() -> str:
     """Generate the next transaction ID based on existing Firebase data for current user."""
@@ -460,6 +583,13 @@ def dashboard_overview() -> Dict[str, Any]:
     summary = transaction_summary()
     stocks = stock_positions()
     investments = get_investments()
+    savings_goals = get_savings_goals()
+
+    for goal in savings_goals:
+        target = float(goal.get("target_amount", 0))
+        current = float(goal.get("current_amount", 0))
+        goal["progress"] = round((current / target) * 100, 2) if target > 0 else 0.0
+        goal["remaining_amount"] = max(target - current, 0.0)
 
     total_stock_value = sum(item["current_value"] for item in stocks)
     total_investment_value = sum(item["current_value"] for item in investments)
@@ -488,6 +618,7 @@ def dashboard_overview() -> Dict[str, Any]:
         },
         "stock_data": stocks,
         "investment_data": investments,
+        "savings_goals": savings_goals,
         "available_stocks": [
             {
                 "symbol": item["symbol"],
