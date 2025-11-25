@@ -300,7 +300,7 @@ export async function addInvestment(payload: CreateInvestmentPayload): Promise<I
 
 export async function getSavingsGoals(): Promise<SavingsGoal[]> {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${BASE_URL}/api/savings`, {
+  const response = await fetch(`${BASE_URL}/api/savings/`, {
     headers,
     cache: "no-store",
   });
@@ -309,7 +309,7 @@ export async function getSavingsGoals(): Promise<SavingsGoal[]> {
 
 export async function createSavingsGoal(payload: CreateSavingsGoalPayload): Promise<SavingsGoal> {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${BASE_URL}/api/savings`, {
+  const response = await fetch(`${BASE_URL}/api/savings/`, {
     method: "POST",
     headers,
     body: JSON.stringify(payload),
