@@ -10,37 +10,6 @@ from services.auth import get_current_user_id
 # Get Firebase store instance
 firebase_store = get_firebase_store()
 
-# Seed transaction data - only used if Firebase is not available
-_SEED_TRANSACTIONS: List[Dict[str, Any]] = [
-    {
-        "id": "1",
-        "title": "Grocery Shopping",
-        "content": "Weekly groceries at Whole Foods",
-        "amount": -85.50,
-        "type": "expense",
-        "category": "Food",
-        "date": "2025-09-25T10:30:00Z",
-    },
-    {
-        "id": "2",
-        "title": "Freelance Payment",
-        "content": "Payment from client for web design project",
-        "amount": 500.00,
-        "type": "income",
-        "category": "Work",
-        "date": "2025-09-24T14:20:00Z",
-    },
-    {
-        "id": "3",
-        "title": "Gas Station",
-        "content": "Fuel for car",
-        "amount": -45.25,
-        "type": "expense",
-        "category": "Transportation",
-        "date": "2025-09-23T08:15:00Z",
-    },
-]
-
 _AVAILABLE_STOCKS: Tuple[Dict[str, Any], ...] = (
     {"symbol": "AAPL", "name": "Apple Inc.", "price": 191.32},
     {"symbol": "MSFT", "name": "Microsoft Corporation", "price": 415.12},
@@ -49,98 +18,26 @@ _AVAILABLE_STOCKS: Tuple[Dict[str, Any], ...] = (
     {"symbol": "TSLA", "name": "Tesla, Inc.", "price": 245.93},
 )
 
-_SEED_STOCKS: List[Dict[str, Any]] = [
-    {
-        "ticker": "AAPL",
-        "quantity": 12,
-        "purchase_price": 150.10,
-        "current_price": 191.32,
-    },
-    {
-        "ticker": "MSFT",
-        "quantity": 5,
-        "purchase_price": 320.50,
-        "current_price": 415.12,
-    },
-    {
-        "ticker": "TSLA",
-        "quantity": 3,
-        "purchase_price": 280.00,
-        "current_price": 245.93,
-    },
-]
-
-_SEED_INVESTMENTS: List[Dict[str, Any]] = [
-    {
-        "id": "inv1",
-        "type": "property",
-        "name": "Downtown Apartment",
-        "description": "2BR/2BA apartment in downtown area",
-        "purchase_value": 250000.00,
-        "current_value": 280000.00,
-        "purchase_date": "2023-01-15T00:00:00Z",
-        "last_updated": "2025-09-25T00:00:00Z",
-        "location": "New York, NY"
-    },
-    {
-        "id": "inv2", 
-        "type": "mutual_fund",
-        "name": "Vanguard Total Stock Market",
-        "description": "Diversified equity fund",
-        "purchase_value": 10000.00,
-        "current_value": 11500.00,
-        "purchase_date": "2024-03-10T00:00:00Z",
-        "last_updated": "2025-09-25T00:00:00Z",
-        "quantity": 112.5
-    }
-]
-
-_SEED_SAVINGS_GOALS: List[Dict[str, Any]] = [
-    {
-        "id": "goal1",
-        "name": "Emergency Fund",
-        "target_amount": 10000.0,
-        "current_amount": 4500.0,
-        "deadline": "2025-12-31T00:00:00Z",
-        "category": "Emergency",
-        "priority": "high",
-        "created_at": "2025-01-01T00:00:00Z",
-        "updated_at": "2025-09-25T00:00:00Z",
-    },
-    {
-        "id": "goal2",
-        "name": "Summer Vacation",
-        "target_amount": 5000.0,
-        "current_amount": 2200.0,
-        "deadline": "2025-07-01T00:00:00Z",
-        "category": "Travel",
-        "priority": "medium",
-        "created_at": "2025-02-01T00:00:00Z",
-        "updated_at": "2025-09-20T00:00:00Z",
-    },
-]
-
 
 def _next_savings_goal_id() -> str:
     """Generate the next savings goal ID for current user."""
     user_id = get_current_user_id()
-    if not user_id:
-        return f"goal{len(_SEED_SAVINGS_GOALS) + 1}"
-
-    if firebase_store.firebase_available:
-        goals = firebase_store.get_savings_goals(user_id)
-        if goals:
-            try:
-                max_id = max(
-                    int(goal.get("id", "goal0")[4:])
-                    for goal in goals
-                    if isinstance(goal.get("id"), str) and goal.get("id").startswith("goal")
-                )
-                return f"goal{max_id + 1}"
-            except (ValueError, TypeError):
-                return f"goal{len(goals) + 1}"
+    if not user_id or not firebase_store.firebase_available:
         return "goal1"
-    return f"goal{len(_SEED_SAVINGS_GOALS) + 1}"
+
+    goals = firebase_store.get_savings_goals(user_id) or []
+    goal_numbers: List[int] = []
+    for goal in goals:
+        goal_id = goal.get("id")
+        if isinstance(goal_id, str) and goal_id.startswith("goal"):
+            suffix = goal_id[4:]
+            if suffix.isdigit():
+                goal_numbers.append(int(suffix))
+
+    if goal_numbers:
+        return f"goal{max(goal_numbers) + 1}"
+
+    return "goal1"
 
 
 def get_savings_goals() -> List[Dict[str, Any]]:
@@ -149,10 +46,11 @@ def get_savings_goals() -> List[Dict[str, Any]]:
     if not user_id:
         return []
 
-    if firebase_store.firebase_available:
-        goals = firebase_store.get_savings_goals(user_id)
-        return goals if goals else []
-    return [goal.copy() for goal in _SEED_SAVINGS_GOALS]
+    if not firebase_store.firebase_available:
+        return []
+
+    goals = firebase_store.get_savings_goals(user_id)
+    return goals if goals else []
 
 
 def add_savings_goal(goal: Dict[str, Any]) -> Dict[str, Any]:
@@ -160,6 +58,8 @@ def add_savings_goal(goal: Dict[str, Any]) -> Dict[str, Any]:
     user_id = get_current_user_id()
     if not user_id:
         raise ValueError("User must be authenticated to create savings goals")
+    if not firebase_store.firebase_available:
+        raise RuntimeError("Firebase store is not available")
 
     saved_goal = {
         "id": _next_savings_goal_id(),
@@ -173,10 +73,7 @@ def add_savings_goal(goal: Dict[str, Any]) -> Dict[str, Any]:
         "updated_at": datetime.utcnow().isoformat() + "Z",
     }
 
-    if firebase_store.firebase_available:
-        firebase_store.save_savings_goal(user_id, saved_goal)
-    else:
-        _SEED_SAVINGS_GOALS.append(saved_goal)
+    firebase_store.save_savings_goal(user_id, saved_goal)
     return saved_goal
 
 
@@ -185,23 +82,17 @@ def update_savings_goal(goal_id: str, updates: Dict[str, Any]) -> Dict[str, Any]
     user_id = get_current_user_id()
     if not user_id:
         raise ValueError("User must be authenticated to update savings goals")
+    if not firebase_store.firebase_available:
+        raise RuntimeError("Firebase store is not available")
 
-    if firebase_store.firebase_available:
-        goals = firebase_store.get_savings_goals(user_id)
-        goal = next((g for g in goals if g.get("id") == goal_id), None)
-        if not goal:
-            return None
-        goal.update(updates)
-        goal["updated_at"] = datetime.utcnow().isoformat() + "Z"
-        firebase_store.save_savings_goal(user_id, goal)
-        return goal
-    else:
-        for idx, goal in enumerate(_SEED_SAVINGS_GOALS):
-            if goal["id"] == goal_id:
-                _SEED_SAVINGS_GOALS[idx].update(updates)
-                _SEED_SAVINGS_GOALS[idx]["updated_at"] = datetime.utcnow().isoformat() + "Z"
-                return _SEED_SAVINGS_GOALS[idx]
-    return None
+    goals = firebase_store.get_savings_goals(user_id)
+    goal = next((g for g in goals if g.get("id") == goal_id), None)
+    if not goal:
+        return None
+    goal.update(updates)
+    goal["updated_at"] = datetime.utcnow().isoformat() + "Z"
+    firebase_store.save_savings_goal(user_id, goal)
+    return goal
 
 
 def delete_savings_goal(goal_id: str) -> bool:
@@ -209,14 +100,10 @@ def delete_savings_goal(goal_id: str) -> bool:
     user_id = get_current_user_id()
     if not user_id:
         return False
+    if not firebase_store.firebase_available:
+        raise RuntimeError("Firebase store is not available")
 
-    if firebase_store.firebase_available:
-        return firebase_store.delete_savings_goal(user_id, goal_id)
-    else:
-        global _SEED_SAVINGS_GOALS
-        before = len(_SEED_SAVINGS_GOALS)
-        _SEED_SAVINGS_GOALS = [goal for goal in _SEED_SAVINGS_GOALS if goal["id"] != goal_id]
-        return len(_SEED_SAVINGS_GOALS) < before
+    return firebase_store.delete_savings_goal(user_id, goal_id)
 
 
 def _next_transaction_id() -> str:
@@ -225,21 +112,20 @@ def _next_transaction_id() -> str:
     if not user_id:
         return "1"
         
-    if firebase_store.firebase_available:
-        transactions = firebase_store.get_transactions(user_id)
-        if transactions:
-            # Get the highest ID and increment
-            try:
-                max_id = max(int(t.get("id", "0")) for t in transactions if t.get("id", "0").isdigit())
-                return str(max_id + 1)
-            except (ValueError, TypeError):
-                # If there's an issue with ID parsing, use length + 1
-                return str(len(transactions) + 1)
-        # No transactions exist, start with 1
+    if not firebase_store.firebase_available:
         return "1"
-    else:
-        # Fallback for development without Firebase
-        return str(len(_SEED_TRANSACTIONS) + 1)
+
+    transactions = firebase_store.get_transactions(user_id)
+    if transactions:
+        # Get the highest ID and increment
+        try:
+            max_id = max(int(t.get("id", "0")) for t in transactions if t.get("id", "0").isdigit())
+            return str(max_id + 1)
+        except (ValueError, TypeError):
+            # If there's an issue with ID parsing, use length + 1
+            return str(len(transactions) + 1)
+    # No transactions exist, start with 1
+    return "1"
 
 
 def _next_investment_id() -> str:
@@ -248,21 +134,20 @@ def _next_investment_id() -> str:
     if not user_id:
         return "inv1"
         
-    if firebase_store.firebase_available:
-        investments = firebase_store.get_investments(user_id)
-        if investments:
-            # Get the highest numeric ID and increment
-            try:
-                max_id = max(int(inv.get("id", "inv0")[3:]) for inv in investments if inv.get("id", "").startswith("inv"))
-                return f"inv{max_id + 1}"
-            except (ValueError, TypeError):
-                # If there's an issue with ID parsing, use length + 1
-                return f"inv{len(investments) + 1}"
-        # No investments exist, start with inv1
+    if not firebase_store.firebase_available:
         return "inv1"
-    else:
-        # Fallback for development without Firebase
-        return f"inv{len(_SEED_INVESTMENTS) + 1}"
+
+    investments = firebase_store.get_investments(user_id)
+    if investments:
+        # Get the highest numeric ID and increment
+        try:
+            max_id = max(int(inv.get("id", "inv0")[3:]) for inv in investments if inv.get("id", "").startswith("inv"))
+            return f"inv{max_id + 1}"
+        except (ValueError, TypeError):
+            # If there's an issue with ID parsing, use length + 1
+            return f"inv{len(investments) + 1}"
+    # No investments exist, start with inv1
+    return "inv1"
 
 
 def get_transactions() -> List[Dict[str, Any]]:
@@ -271,12 +156,11 @@ def get_transactions() -> List[Dict[str, Any]]:
     if not user_id:
         return []
         
-    if firebase_store.firebase_available:
-        transactions = firebase_store.get_transactions(user_id)
-        return transactions if transactions else []
-    else:
-        # Fallback to seed data for development only
-        return [transaction.copy() for transaction in _SEED_TRANSACTIONS]
+    if not firebase_store.firebase_available:
+        return []
+
+    transactions = firebase_store.get_transactions(user_id)
+    return transactions if transactions else []
 
 
 def add_transaction(
@@ -303,12 +187,10 @@ def add_transaction(
     }
     
     # Save to Firebase
-    if firebase_store.firebase_available:
-        return firebase_store.save_transaction(user_id, transaction)
-    else:
-        # For development without Firebase, add to seed data
-        _SEED_TRANSACTIONS.append(transaction)
-        return transaction
+    if not firebase_store.firebase_available:
+        raise RuntimeError("Firebase store is not available")
+
+    return firebase_store.save_transaction(user_id, transaction)
 
 
 def delete_transaction(transaction_id: str) -> bool:
@@ -317,15 +199,11 @@ def delete_transaction(transaction_id: str) -> bool:
     if not user_id:
         return False
         
-    if firebase_store.firebase_available:
-        # Delete from Firebase
-        return firebase_store.delete_transaction(user_id, transaction_id)
-    else:
-        # For development without Firebase, remove from seed data
-        global _SEED_TRANSACTIONS
-        before = len(_SEED_TRANSACTIONS)
-        _SEED_TRANSACTIONS = [t for t in _SEED_TRANSACTIONS if t["id"] != transaction_id]
-        return len(_SEED_TRANSACTIONS) < before
+    if not firebase_store.firebase_available:
+        raise RuntimeError("Firebase store is not available")
+
+    # Delete from Firebase
+    return firebase_store.delete_transaction(user_id, transaction_id)
 
 
 def transaction_summary() -> Dict[str, Any]:
@@ -359,12 +237,11 @@ def get_investments() -> List[Dict[str, Any]]:
     if not user_id:
         return []
         
-    if firebase_store.firebase_available:
-        investments = firebase_store.get_investments(user_id)
-        return investments if investments else []
-    else:
-        # Fallback to seed data for development only
-        return [investment.copy() for investment in _SEED_INVESTMENTS]
+    if not firebase_store.firebase_available:
+        return []
+
+    investments = firebase_store.get_investments(user_id)
+    return investments if investments else []
 
 
 def add_investment(
@@ -403,12 +280,10 @@ def add_investment(
         investment["custom_type"] = custom_type
     
     # Save to Firebase
-    if firebase_store.firebase_available:
-        return firebase_store.save_investment(user_id, investment)
-    else:
-        # For development without Firebase, add to seed data
-        _SEED_INVESTMENTS.append(investment)
-        return investment
+    if not firebase_store.firebase_available:
+        raise RuntimeError("Firebase store is not available")
+
+    return firebase_store.save_investment(user_id, investment)
 
 
 def update_investment(
@@ -420,27 +295,21 @@ def update_investment(
     if not user_id:
         raise ValueError("User must be authenticated to update investments")
         
-    if firebase_store.firebase_available:
-        # Get current investment
-        investments = firebase_store.get_investments(user_id)
-        investment = next((inv for inv in investments if inv.get("id") == investment_id), None)
-        if not investment:
-            return None
-            
-        # Update fields
-        investment.update(updates)
-        investment["last_updated"] = datetime.utcnow().isoformat() + "Z"
-        
-        # Save back to Firebase
-        return firebase_store.save_investment(user_id, investment)
-    else:
-        # For development without Firebase, update seed data
-        for i, investment in enumerate(_SEED_INVESTMENTS):
-            if investment["id"] == investment_id:
-                _SEED_INVESTMENTS[i].update(updates)
-                _SEED_INVESTMENTS[i]["last_updated"] = datetime.utcnow().isoformat() + "Z"
-                return _SEED_INVESTMENTS[i]
+    if not firebase_store.firebase_available:
+        raise RuntimeError("Firebase store is not available")
+
+    # Get current investment
+    investments = firebase_store.get_investments(user_id)
+    investment = next((inv for inv in investments if inv.get("id") == investment_id), None)
+    if not investment:
         return None
+        
+    # Update fields
+    investment.update(updates)
+    investment["last_updated"] = datetime.utcnow().isoformat() + "Z"
+    
+    # Save back to Firebase
+    return firebase_store.save_investment(user_id, investment)
 
 
 def delete_investment(investment_id: str) -> bool:
@@ -449,26 +318,12 @@ def delete_investment(investment_id: str) -> bool:
     if not user_id:
         return False
         
-    if firebase_store.firebase_available:
-        # Delete from Firebase
-        return firebase_store.delete_investment(user_id, investment_id)
-    else:
-        # For development without Firebase, remove from seed data
-        global _SEED_INVESTMENTS
-        before = len(_SEED_INVESTMENTS)
-        _SEED_INVESTMENTS = [inv for inv in _SEED_INVESTMENTS if inv["id"] != investment_id]
-        return len(_SEED_INVESTMENTS) < before
-    """Return stocks from Firebase for current user or empty list for new users."""
-    user_id = get_current_user_id()
-    if not user_id:
-        return []
-        
-    if firebase_store.firebase_available:
-        stocks = firebase_store.get_stocks(user_id)
-        return stocks if stocks else []
-    else:
-        # Fallback to seed data for development only
-        return [stock.copy() for stock in _SEED_STOCKS]
+    if not firebase_store.firebase_available:
+        raise RuntimeError("Firebase store is not available")
+
+    # Delete from Firebase
+    return firebase_store.delete_investment(user_id, investment_id)
+
 
 
 def get_stocks() -> List[Dict[str, Any]]:
@@ -477,12 +332,11 @@ def get_stocks() -> List[Dict[str, Any]]:
     if not user_id:
         return []
         
-    if firebase_store.firebase_available:
-        stocks = firebase_store.get_stocks(user_id)
-        return stocks if stocks else []
-    else:
-        # Fallback to seed data for development only
-        return [stock.copy() for stock in _SEED_STOCKS]
+    if not firebase_store.firebase_available:
+        return []
+
+    stocks = firebase_store.get_stocks(user_id)
+    return stocks if stocks else []
 
 
 def add_stock(
@@ -513,13 +367,11 @@ def add_stock(
         "current_price": resolved_current_price,
     }
     
-    # Save to Firebase (or add to seed data if Firebase unavailable)
-    if firebase_store.firebase_available:
-        firebase_store.save_stock(user_id, stock)
-    else:
-        # For development without Firebase, add to seed data
-        _SEED_STOCKS.append(stock)
-    
+    # Save to Firebase
+    if not firebase_store.firebase_available:
+        raise RuntimeError("Firebase store is not available")
+
+    firebase_store.save_stock(user_id, stock)
     return stock.copy()
 
 
@@ -529,15 +381,11 @@ def delete_stock(ticker: str) -> bool:
     if not user_id:
         return False
         
-    if firebase_store.firebase_available:
-        # Delete from Firebase
-        return firebase_store.delete_stock(user_id, ticker)
-    else:
-        # For development without Firebase, remove from seed data
-        global _SEED_STOCKS
-        original_length = len(_SEED_STOCKS)
-        _SEED_STOCKS = [s for s in _SEED_STOCKS if s["ticker"] != ticker]
-        return len(_SEED_STOCKS) < original_length
+    if not firebase_store.firebase_available:
+        raise RuntimeError("Firebase store is not available")
+
+    # Delete from Firebase
+    return firebase_store.delete_stock(user_id, ticker)
 
 
 def available_stocks() -> Tuple[Dict[str, Any], ...]:
