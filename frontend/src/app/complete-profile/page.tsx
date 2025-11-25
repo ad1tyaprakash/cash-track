@@ -12,11 +12,12 @@ import { auth } from "@/lib/firebase"
 
 export default function CompleteProfilePage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   useEffect(() => {
     // Redirect if user is not authenticated
@@ -147,6 +148,26 @@ export default function CompleteProfilePage() {
               disabled={isSubmitting || !password || !confirmPassword}
             >
               {isSubmitting ? "Setting password..." : "Set Password & Continue"}
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={async () => {
+                setIsSigningOut(true)
+                try {
+                  await signOut()
+                  router.replace("/login")
+                } catch (signOutError) {
+                  console.error("Sign out error:", signOutError)
+                  setError("Failed to sign out. Please try again.")
+                } finally {
+                  setIsSigningOut(false)
+                }
+              }}
+              disabled={isSubmitting || isSigningOut}
+            >
+              {isSigningOut ? "Signing out..." : "Sign out"}
             </Button>
 
             <div className="text-center text-sm text-gray-600">
