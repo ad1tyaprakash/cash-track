@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useRef, useState } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -17,6 +17,7 @@ function SavingsContent({ overview, initialGoals }: { overview: DashboardOvervie
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>(initialGoals)
   const [loadingGoals, setLoadingGoals] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [contributionAmounts, setContributionAmounts] = useState<Record<string, string>>({})
 
   const [newGoal, setNewGoal] = useState({ 
     name: '', 
@@ -24,6 +25,9 @@ function SavingsContent({ overview, initialGoals }: { overview: DashboardOvervie
     deadline: '',
     category: 'Other'
   })
+
+  const newGoalSectionRef = useRef<HTMLDivElement | null>(null)
+  const newGoalNameInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     setSavingsGoals(initialGoals)
@@ -45,7 +49,7 @@ function SavingsContent({ overview, initialGoals }: { overview: DashboardOvervie
 
   const totalSavingsTarget = savingsGoals.reduce((sum, goal) => sum + goal.target_amount, 0)
   const totalSavedAmount = savingsGoals.reduce((sum, goal) => sum + goal.current_amount, 0)
-  const averageProgress = (totalSavedAmount / totalSavingsTarget) * 100
+  const averageProgress = totalSavingsTarget > 0 ? (totalSavedAmount / totalSavingsTarget) * 100 : 0
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -118,7 +122,12 @@ function SavingsContent({ overview, initialGoals }: { overview: DashboardOvervie
           <h1 className="text-3xl font-bold">Savings Goals</h1>
           <p className="text-muted-foreground">Track your progress towards financial goals</p>
         </div>
-        <Button>
+        <Button
+          onClick={() => {
+            newGoalSectionRef.current?.scrollIntoView({ behavior: 'smooth' })
+            newGoalNameInputRef.current?.focus({ preventScroll: true })
+          }}
+        >
           <PlusCircle className="mr-2 h-4 w-4" />
           New Goal
         </Button>
@@ -218,13 +227,51 @@ function SavingsContent({ overview, initialGoals }: { overview: DashboardOvervie
                   </span>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => updateSavingsGoal(goal.id, { current_amount: goal.current_amount + 100 })}>
-                    +$100
-                  </Button>
-                  <Button size="sm" variant="destructive" className="flex-1" onClick={() => deleteSavingsGoal(goal.id).then(refreshGoals)}>
-                    Delete
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={contributionAmounts[goal.id] ?? "100"}
+                      onChange={(e) => setContributionAmounts((prev) => ({ ...prev, [goal.id]: e.target.value }))}
+                      placeholder="Amount"
+                      className="flex-1"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        const inputVal = contributionAmounts[goal.id] ?? "100"
+                        const delta = parseFloat(inputVal)
+                        if (Number.isNaN(delta) || delta <= 0) {
+                          setError("Enter an amount greater than 0 to add")
+                          return
+                        }
+                        try {
+                          setLoadingGoals(true)
+                          setError(null)
+                          await updateSavingsGoal(goal.id, { current_amount: goal.current_amount + delta })
+                          await refreshGoals()
+                        } catch (err) {
+                          console.error('Failed to update savings goal amount', err)
+                          setError('Could not update goal. Please try again.')
+                        } finally {
+                          setLoadingGoals(false)
+                        }
+                      }}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => updateSavingsGoal(goal.id, { current_amount: goal.current_amount + 100 }).then(refreshGoals)}>
+                      +$100
+                    </Button>
+                    <Button size="sm" variant="destructive" className="flex-1" onClick={() => deleteSavingsGoal(goal.id).then(refreshGoals)}>
+                      Delete
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -234,7 +281,7 @@ function SavingsContent({ overview, initialGoals }: { overview: DashboardOvervie
 
       {/* Add New Goal */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+        <Card ref={newGoalSectionRef}>
           <CardHeader>
             <CardTitle>Create New Savings Goal</CardTitle>
             <CardDescription>Set a new financial target to work towards</CardDescription>
@@ -247,6 +294,7 @@ function SavingsContent({ overview, initialGoals }: { overview: DashboardOvervie
                 placeholder="e.g., Emergency Fund"
                 value={newGoal.name}
                 onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
+                ref={newGoalNameInputRef}
               />
             </div>
             
